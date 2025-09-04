@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js';
+
 import { chainIdToName, ScannerResult, TokenData } from '../scheme/type';
 
 /**
@@ -102,13 +104,25 @@ export function formatPrice(price: number): string {
     return 'N/A';
   }
 
+  const decimal = new Decimal(price);
+
   if (price >= 1) {
-    return price.toFixed(2);
+    return decimal.toFixed(2);
   }
   if (price >= 0.01) {
-    return price.toFixed(4);
+    return decimal.toFixed(4);
   }
-  return price.toExponential(2);
+  if (price >= 0.0001) {
+    return decimal.toFixed(6);
+  }
+  if (price >= 0.000001) {
+    return decimal.toFixed(8);
+  }
+  if (price > 0) {
+    return decimal.toFixed(10);
+  }
+
+  return '0.00';
 }
 
 /**

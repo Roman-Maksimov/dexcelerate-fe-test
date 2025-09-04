@@ -1,4 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  InfiniteData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query';
 import { AxiosResponse } from 'axios';
 
 import {
@@ -27,7 +31,9 @@ export const useGetScannerInfiniteQuery = (
   baseParams: Omit<GetScannerResultParams, 'page'>
 ) => {
   return useInfiniteQuery<
-    AxiosResponse<ScannerApiResponse & { allPages: TokenData[] }>
+    AxiosResponse<ScannerApiResponse>,
+    undefined,
+    InfiniteData<AxiosResponse<ScannerApiResponse>> & { allPages: TokenData[] }
   >({
     queryKey: [API_KEY_GET_SCANNER, baseParams],
     queryFn: ({ pageParam = 1 }) =>

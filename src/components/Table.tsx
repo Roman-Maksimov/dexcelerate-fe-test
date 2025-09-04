@@ -320,7 +320,7 @@ export const Table: FC = () => {
         </table>
       </div>
 
-      {!data?.allPages.length === 0 && !isLoading && (
+      {!data?.allPages.length && !isLoading && (
         <div className="text-center py-8 text-gray-400">No data to display</div>
       )}
 
