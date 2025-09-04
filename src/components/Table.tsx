@@ -3,13 +3,53 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { useGetScannerQuery } from '../api/hooks';
 import { useWebSocket } from '../hooks/useWebSocket';
 import {
+  GetScannerResultParams,
+  OrderBy,
   TokenData,
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
 } from '../scheme/type';
 import { convertToTokenData } from '../utils/tokenUtils';
 import { COLUMNS } from './columns';
-import { getNestedValue, TableCell } from './TableCell';
+import { TableCell } from './TableCell';
+
+// Map column keys to API parameters
+const mapColumnToApiParams = (
+  column: string,
+  direction: 'asc' | 'desc'
+): Partial<GetScannerResultParams> => {
+  const orderBy: OrderBy = direction;
+  switch (column) {
+    case 'volumeUsd':
+      return { rankBy: 'volume', orderBy };
+    case 'mcap':
+      return { rankBy: 'mcap', orderBy };
+    case 'priceUsd':
+      return { rankBy: 'price24H', orderBy };
+    case 'priceChange5m':
+      return { rankBy: 'price5M', orderBy };
+    case 'priceChange1h':
+      return { rankBy: 'price1H', orderBy };
+    case 'priceChange6h':
+      return { rankBy: 'price6H', orderBy };
+    case 'priceChange24h':
+      return { rankBy: 'price24H', orderBy };
+    case 'buys':
+      return { rankBy: 'buys', orderBy };
+    case 'sells':
+      return { rankBy: 'sells', orderBy };
+    case 'liquidity':
+      return { rankBy: 'liquidity', orderBy };
+    case 'tokenCreatedTimestamp':
+      return { rankBy: 'age', orderBy: direction === 'asc' ? 'desc' : 'asc' }; // Invert for age (newest first)
+    case 'txns':
+      return { rankBy: 'txns', orderBy };
+    case 'trending':
+      return { rankBy: 'trending', orderBy };
+    default:
+      return { rankBy: 'volume', orderBy }; // Default fallback
+  }
+};
 
 export const Table: FC = () => {
   const [tokens, setTokens] = useState<TokenData[]>([]);
@@ -19,10 +59,18 @@ export const Table: FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initial data fetch
-  const { data: initialData, isLoading: isInitialLoading } = useGetScannerQuery(
-    TRENDING_TOKENS_FILTERS
-  );
+  // Create API parameters with current sort
+  const apiParams = useMemo(() => {
+    const sortParams = mapColumnToApiParams(sort.column, sort.direction);
+    return {
+      ...TRENDING_TOKENS_FILTERS,
+      ...sortParams,
+    };
+  }, [sort]);
+
+  // Fetch data with current sort parameters
+  const { data: initialData, isLoading: isInitialLoading } =
+    useGetScannerQuery(apiParams);
 
   // WebSocket connection
   const { isConnected, subscribeToScanner, unsubscribeFromScanner } =
@@ -49,36 +97,18 @@ export const Table: FC = () => {
     }
   }, [initialData]);
 
-  // Subscribe to WebSocket updates
+  // Subscribe to WebSocket updates with current sort parameters
   useEffect(() => {
     if (isConnected) {
-      subscribeToScanner(TRENDING_TOKENS_FILTERS);
+      subscribeToScanner(apiParams);
       return () => {
-        unsubscribeFromScanner(TRENDING_TOKENS_FILTERS);
+        unsubscribeFromScanner(apiParams);
       };
     }
-  }, [isConnected, subscribeToScanner, unsubscribeFromScanner]);
+  }, [isConnected, subscribeToScanner, unsubscribeFromScanner, apiParams]);
 
-  // Sort tokens
-  const sortedTokens = useMemo(() => {
-    return [...tokens].sort((a, b) => {
-      const aValue = getNestedValue(a, sort.column);
-      const bValue = getNestedValue(b, sort.column);
-
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sort.direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      const aStr = String(aValue).toLowerCase();
-      const bStr = String(bValue).toLowerCase();
-
-      if (sort.direction === 'asc') {
-        return aStr.localeCompare(bStr);
-      } else {
-        return bStr.localeCompare(aStr);
-      }
-    });
-  }, [tokens, sort]);
+  // No client-side sorting needed - server handles it
+  const sortedTokens = tokens;
 
   const handleSort = (column: string) => {
     setSort(prev => ({
@@ -86,6 +116,7 @@ export const Table: FC = () => {
       direction:
         prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc',
     }));
+    // Data will be refetched automatically due to apiParams dependency
   };
 
   if (isLoading || isInitialLoading) {
