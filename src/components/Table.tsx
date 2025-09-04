@@ -1,5 +1,6 @@
 import React, {
   FC,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -16,10 +17,10 @@ import {
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
 } from '../scheme/type';
-import { Skeleton } from '../ui/skeleton';
 import { convertToTokenData } from '../utils/tokenUtils';
 import { COLUMNS } from './columns';
-import { TableCell } from './TableCell';
+import { TableRow } from './TableRow';
+import { TableRowSkeleton } from './TableRowSkeleton';
 
 // Map column keys to API parameters
 const mapColumnToApiParams = (
@@ -274,69 +275,23 @@ export const Table: FC = () => {
                 sortedTokens.length > 50; // Only show if we have enough data
 
               return (
-                <React.Fragment key={`${token.exchange}-${token.id}`}>
-                  {shouldShowEarlyTrigger && (
-                    <tr>
-                      <td colSpan={COLUMNS.length} className="p-0">
-                        <div ref={earlyLoadRef} className="h-1 w-full" />
-                      </td>
-                    </tr>
-                  )}
-                  <tr className="hover:bg-gray-800 transition-colors">
-                    {COLUMNS.map(column => (
-                      <td
-                        key={column.key}
-                        className={`${
-                          column.align === 'right'
-                            ? 'text-right'
-                            : column.align === 'center'
-                              ? 'text-center'
-                              : 'text-left'
-                        }`}
-                      >
-                        <div
-                          className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
-                          style={{ width: column.width }}
-                        >
-                          <TableCell
-                            token={token}
-                            column={column}
-                            index={index}
-                          />
-                        </div>
-                      </td>
-                    ))}
-                  </tr>
-                </React.Fragment>
+                <Suspense
+                  key={`${token.exchange}-${token.id}`}
+                  fallback={<TableRowSkeleton />}
+                >
+                  <TableRow
+                    token={token}
+                    index={index}
+                    shouldShowEarlyTrigger={shouldShowEarlyTrigger}
+                    earlyLoadRef={earlyLoadRef}
+                  />
+                </Suspense>
               );
             })}
 
             {isInitialLoading &&
               Array.from({ length: 100 }).map((_, index) => (
-                <tr
-                  key={`skeleton-${index}`}
-                  className="hover:bg-gray-800 transition-colors"
-                >
-                  {COLUMNS.map(column => (
-                    <td
-                      key={column.key}
-                      className={`${
-                        column.align === 'right'
-                          ? 'text-right'
-                          : column.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                      }`}
-                    >
-                      <div
-                        className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
-                        style={{ width: column.width }}
-                      >
-                        <Skeleton className="h-[27px] w-full bg-gray-700" />
-                      </div>
-                    </td>
-                  ))}
-                </tr>
+                <TableRowSkeleton key={`skeleton-${index}`} />
               ))}
           </tbody>
         </table>
