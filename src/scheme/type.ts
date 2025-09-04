@@ -1,25 +1,24 @@
-
 // ===== BASIC TYPES =====
 
-export type SupportedChainName = "ETH" | "SOL" | "BASE" | "BSC";
-export type SupportedChainId = "1" | "11155111" | "900" | "8453" | "56";
+export type SupportedChainName = 'ETH' | 'SOL' | 'BASE' | 'BSC';
+export type SupportedChainId = '1' | '11155111' | '900' | '8453' | '56';
 
-export type OrderBy = "asc" | "desc";
-export type TimeFrame = "5M" | "1H" | "6H" | "24H";
+export type OrderBy = 'asc' | 'desc';
+export type TimeFrame = '5M' | '1H' | '6H' | '24H';
 export type SerdeRankBy =
-  | "price5M"
-  | "price1H"
-  | "price6H"
-  | "price24H"
-  | "volume"
-  | "txns"
-  | "buys"
-  | "sells"
-  | "trending"
-  | "age"
-  | "liquidity"
-  | "mcap"
-  | "migration";
+  | 'price5M'
+  | 'price1H'
+  | 'price6H'
+  | 'price24H'
+  | 'volume'
+  | 'txns'
+  | 'buys'
+  | 'sells'
+  | 'trending'
+  | 'age'
+  | 'liquidity'
+  | 'mcap'
+  | 'migration';
 
 // ===== API REQUEST TYPES =====
 
@@ -179,19 +178,18 @@ export interface ScannerApiResponse {
   totalRows: number;
 }
 
-
 // ===== WEBSOCKET SUBSCRIPTION TYPES =====
 
 /**
  * Outgoing WebSocket messages you need to send
  */
 export interface ScannerSubscriptionMessage {
-  event: "scanner-filter";
+  event: 'scanner-filter';
   data: GetScannerResultParams;
 }
 
 export interface ScannerUnsubscriptionMessage {
-  event: "unsubscribe-scanner-filter";
+  event: 'unsubscribe-scanner-filter';
   data: GetScannerResultParams;
 }
 
@@ -199,7 +197,7 @@ export interface ScannerUnsubscriptionMessage {
  * IMPORTANT: You must subscribe to the pair room for each token to receive tick events
  */
 export interface PairSubscriptionMessage {
-  event: "subscribe-pair";
+  event: 'subscribe-pair';
   data: {
     pair: string;
     token: string;
@@ -208,7 +206,7 @@ export interface PairSubscriptionMessage {
 }
 
 export interface PairUnsubscriptionMessage {
-  event: "unsubscribe-pair";
+  event: 'unsubscribe-pair';
   data: {
     pair: string;
     token: string;
@@ -217,7 +215,7 @@ export interface PairUnsubscriptionMessage {
 }
 
 export interface PairStatsSubscriptionMessage {
-  event: "subscribe-pair-stats";
+  event: 'subscribe-pair-stats';
   data: {
     pair: string;
     token: string;
@@ -226,7 +224,7 @@ export interface PairStatsSubscriptionMessage {
 }
 
 export interface PairStatsUnsubscriptionMessage {
-  event: "unsubscribe-pair-stats";
+  event: 'unsubscribe-pair-stats';
   data: {
     pair: string;
     token: string;
@@ -234,15 +232,13 @@ export interface PairStatsUnsubscriptionMessage {
   };
 }
 
-
 export type OutgoingWebSocketMessage =
   | ScannerSubscriptionMessage
   | ScannerUnsubscriptionMessage
   | PairSubscriptionMessage
   | PairUnsubscriptionMessage
   | PairStatsSubscriptionMessage
-  | PairStatsUnsubscriptionMessage
-
+  | PairStatsUnsubscriptionMessage;
 
 // ===== WEBSOCKET INCOMING MESSAGE TYPES =====
 
@@ -266,14 +262,14 @@ export interface WsTokenSwap {
  * Payload for subscribing to pair-specific updates
  */
 export interface PairSubscriptionPayload {
-  pair: string;   // pair address
-  token: string;  // token address
+  pair: string; // pair address
+  token: string; // token address
   chain: SupportedChainName;
 }
 /**
  * Real-time price and volume updates
  * You'll receive this for tokens you're subscribed to
- * 
+ *
  * IMPORTANT: To receive tick events, you must first subscribe to the pair room
  * for each token by sending a "subscribe-pair" WebSocket message with the
  * pair address, token address, and chain.
@@ -408,7 +404,6 @@ export interface TimeframesPairStats {
   twentyFourHour: TimeFramePairStatsRef;
 }
 
-
 export interface TimeFramePairStatsRef {
   buyVolume: string;
   /**
@@ -449,7 +444,6 @@ export interface TimeFramePairStatsRef {
   volume: string;
 }
 
-
 /**
  * Full dataset updates - this replaces your current data
  */
@@ -460,28 +454,31 @@ export interface ScannerPairsEventPayload {
   };
 }
 
-
 /**
  * All incoming WebSocket message types you need to handle
  */
 export type IncomingWebSocketMessage =
-  | { event: "tick"; data: TickEventPayload }
-  | { event: "pair-stats"; data: PairStatsMsgData }
-  | { event: "scanner-pairs"; data: ScannerPairsEventPayload }
+  | { event: 'tick'; data: TickEventPayload }
+  | { event: 'pair-stats'; data: PairStatsMsgData }
+  | { event: 'scanner-pairs'; data: ScannerPairsEventPayload };
 
 /**
  * Helper to convert chain ID to chain name
  */
 export function chainIdToName(chainId: number): SupportedChainName {
   switch (chainId.toString()) {
-    case "1": return "ETH";
-    case "56": return "BSC";
-    case "8453": return "BASE";
-    case "900": return "SOL";
-    default: return "ETH";
+    case '1':
+      return 'ETH';
+    case '56':
+      return 'BSC';
+    case '8453':
+      return 'BASE';
+    case '900':
+      return 'SOL';
+    default:
+      return 'ETH';
   }
 }
-
 
 // ===== FILTER PRESETS =====
 
@@ -489,16 +486,16 @@ export function chainIdToName(chainId: number): SupportedChainName {
  * Preset filters for the two tables
  */
 export const TRENDING_TOKENS_FILTERS: GetScannerResultParams = {
-  rankBy: "volume",
-  orderBy: "desc",
+  rankBy: 'volume',
+  orderBy: 'desc',
   minVol24H: 1000, // minimum $1k volume
   isNotHP: true, // exclude honeypots
   maxAge: 7 * 24 * 60 * 60, // max 7 days old
 };
 
 export const NEW_TOKENS_FILTERS: GetScannerResultParams = {
-  rankBy: "age",
-  orderBy: "desc", // newest first
+  rankBy: 'age',
+  orderBy: 'desc', // newest first
   maxAge: 24 * 60 * 60, // max 24 hours old
   isNotHP: true,
 };
