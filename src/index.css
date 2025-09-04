@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap');
+
 @import 'tailwindcss';
 
 @source "./";
@@ -5,3 +7,151 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @tailwind utilities;
+
+:root {
+  --black: #181818;
+  --white: #fdfcff;
+  --white-5: #ffffff0d;
+  --white-50: #ffffff80;
+  --red: #ff5557;
+  --accent: #20ff60;
+  --gray-dark: #1d1d1f;
+  --gray-dark-50: #1d1d1f80;
+
+  --background: var(--white);
+  --foreground: var(--black);
+  --card: var(--white);
+  --card-foreground: var(--black);
+  --popover: var(--white);
+  --popover-foreground: var(--black);
+  --primary: var(--accent);
+  --primary-foreground: #131313;
+  --secondary: var(--black);
+  --secondary-foreground: var(--white);
+  --muted: #f5f5f5;
+  --muted-foreground: var(--white-50);
+  --accent-foreground: var(--white);
+  --destructive: var(--red);
+  --destructive-foreground: var(--red);
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  --chart-1: #a855f7;
+  --chart-2: #06b6d4;
+  --chart-3: #3b82f6;
+  --chart-4: #f59e0b;
+  --chart-5: #f97316;
+  --radius: 8px;
+  --sidebar: var(--white);
+  --sidebar-foreground: var(--black);
+  --sidebar-primary: var(--black);
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: var(--black);
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #a3a3a3;
+}
+
+.dark {
+  --background: var(--black);
+  --foreground: var(--white);
+  --card: var(--gray-dark-50);
+  --card-foreground: var(--white);
+  --popover: #171717;
+  --popover-foreground: var(--white);
+  --border: var(--white-5);
+  --input: var(--white-5);
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #06b6d4;
+  --sidebar: var(--black);
+  --sidebar-foreground: var(--white);
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: var(--white);
+  --sidebar-border: #404040;
+  --sidebar-ring: #6366f1;
+}
+
+@theme {
+  --font-geologica: Geologica, ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+
+  --text-h1: 32px;
+  --text-h1--line-height: 1.2;
+  --text-h1--font-weight: 600;
+
+  --text-h2: 20px;
+  --text-h2--line-height: 1.2;
+  --text-h2--font-weight: 600;
+
+  --text-h3: 16px;
+  --text-h3--line-height: 1.4;
+  --text-h3--font-weight: 500;
+}
+
+@theme inline {
+  --default-font-family: var(--font-geologica);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground text-base;
+  }
+
+  h1 {
+    @apply text-h1;
+  }
+
+  h2 {
+    @apply text-h2;
+  }
+
+  h3 {
+    @apply text-h3;
+  }
+}
