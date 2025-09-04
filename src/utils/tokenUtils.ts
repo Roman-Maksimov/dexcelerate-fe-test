@@ -76,6 +76,11 @@ export function convertToTokenData(result: ScannerResult): TokenData {
  * Format number with appropriate suffix (K, M, B)
  */
 export function formatNumber(num: number): string {
+  // Handle NaN, Infinity, and invalid numbers
+  if (!isFinite(num) || isNaN(num)) {
+    return 'N/A';
+  }
+
   if (num >= 1e9) {
     return (num / 1e9).toFixed(1) + 'B';
   }
@@ -92,6 +97,11 @@ export function formatNumber(num: number): string {
  * Format price with appropriate decimal places
  */
 export function formatPrice(price: number): string {
+  // Handle NaN, Infinity, and invalid numbers
+  if (!isFinite(price) || isNaN(price)) {
+    return 'N/A';
+  }
+
   if (price >= 1) {
     return price.toFixed(2);
   }
@@ -108,6 +118,11 @@ export function formatPercentage(percentage: number): {
   text: string;
   isPositive: boolean;
 } {
+  // Handle NaN, Infinity, and invalid numbers
+  if (!isFinite(percentage) || isNaN(percentage)) {
+    return { text: 'N/A', isPositive: false };
+  }
+
   const isPositive = percentage >= 0;
   const text = `${isPositive ? '+' : ''}${percentage.toFixed(2)}%`;
   return { text, isPositive };

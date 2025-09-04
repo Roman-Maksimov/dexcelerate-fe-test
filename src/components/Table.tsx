@@ -19,7 +19,7 @@ import {
 const COLUMNS: TokenTableColumn[] = [
   { key: 'rank', label: '#', sortable: false, width: '60px', align: 'left' },
   { key: 'token', label: 'Token', sortable: true, width: '200px' },
-  { key: 'exchange', label: 'Exchange', sortable: true, width: '120px' },
+  { key: 'exchange', label: 'Exchange', sortable: true, width: '250px' },
   {
     key: 'priceUsd',
     label: 'Price',
@@ -31,14 +31,14 @@ const COLUMNS: TokenTableColumn[] = [
     key: 'mcap',
     label: 'Market Cap',
     sortable: true,
-    width: '120px',
+    width: '140px',
     align: 'right',
   },
   {
     key: 'volumeUsd',
     label: 'Volume 24h',
     sortable: true,
-    width: '120px',
+    width: '140px',
     align: 'right',
   },
   {
@@ -220,7 +220,7 @@ export const Table: FC = () => {
             {Object.entries(token.priceChangePcs).map(([timeframe, value]) => {
               const { text, isPositive } = formatPercentage(value);
               return (
-                <span
+                <div
                   key={timeframe}
                   className={`px-1 py-0.5 rounded text-center ${
                     isPositive
@@ -229,9 +229,10 @@ export const Table: FC = () => {
                         ? 'text-gray-400'
                         : 'text-red-400'
                   }`}
+                  title={`${timeframe} change`}
                 >
                   {text}
-                </span>
+                </div>
               );
             })}
           </div>
@@ -377,7 +378,7 @@ export const Table: FC = () => {
                 {COLUMNS.map(column => (
                   <td
                     key={column.key}
-                    className={`px-4 py-4 whitespace-nowrap text-sm ${
+                    className={`text-sm ${
                       column.align === 'right'
                         ? 'text-right'
                         : column.align === 'center'
@@ -385,7 +386,12 @@ export const Table: FC = () => {
                           : 'text-left'
                     }`}
                   >
-                    {renderTokenCell(token, column, index)}
+                    <div
+                      className="p-4 text-ellipsis overflow-hidden whitespace-nowrap"
+                      style={{ width: column.width }}
+                    >
+                      {renderTokenCell(token, column, index)}
+                    </div>
                   </td>
                 ))}
               </tr>
