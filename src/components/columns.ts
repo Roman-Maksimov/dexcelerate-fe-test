@@ -7,7 +7,7 @@ export const COLUMNS: TokenTableColumn[] = [
   {
     key: 'priceUsd',
     label: 'Price',
-    sortable: true,
+    sortable: false, // TODO: no param in the API for the price column
     width: '100px',
     align: 'right',
   },

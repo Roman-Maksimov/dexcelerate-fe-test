@@ -96,7 +96,7 @@ export function formatNumber(num: number): string {
 }
 
 /**
- * Format price with appropriate decimal places
+ * Format price with appropriate decimal places and subscript notation for leading zeros
  */
 export function formatPrice(price: number): string {
   // Handle NaN, Infinity, and invalid numbers
@@ -113,16 +113,55 @@ export function formatPrice(price: number): string {
     return decimal.toFixed(4);
   }
   if (price >= 0.0001) {
-    return decimal.toFixed(6);
+    return formatPriceWithSubscript(decimal.toFixed(6));
   }
   if (price >= 0.000001) {
-    return decimal.toFixed(8);
+    return formatPriceWithSubscript(decimal.toFixed(8));
   }
   if (price > 0) {
-    return decimal.toFixed(10);
+    // For very small numbers, use subscript notation for leading zeros
+    return formatPriceWithSubscript(decimal);
   }
 
   return '0.00';
+}
+
+/**
+ * Format very small numbers with subscript notation for leading zeros
+ * Example: 0.000321 -> 0.0₃321, 0.0000321 -> 0.0₄321
+ */
+function formatPriceWithSubscript(decimal: string | Decimal): string {
+  const str = typeof decimal === 'string' ? decimal : decimal.toFixed(20); // Use high precision
+  const match = str.match(/^0\.(0+)(\d+)$/);
+
+  if (!match) {
+    return typeof decimal === 'string' ? decimal : decimal.toFixed(10);
+  }
+
+  const leadingZeros = match[1];
+  const significantDigits = match[2];
+
+  // Only use subscript notation if there are 3 or more leading zeros
+  if (leadingZeros && leadingZeros.length >= 3) {
+    const subscriptNumber = leadingZeros.length;
+    const subscript = getSubscriptNumber(subscriptNumber);
+    return `0.0${subscript}${significantDigits}`;
+  }
+
+  // For 2 or fewer leading zeros, use regular formatting
+  return typeof decimal === 'string' ? decimal : decimal.toFixed(10);
+}
+
+/**
+ * Convert number to subscript notation
+ */
+function getSubscriptNumber(num: number): string {
+  const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+  return num
+    .toString()
+    .split('')
+    .map(digit => subscripts[parseInt(digit)])
+    .join('');
 }
 
 /**
