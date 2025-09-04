@@ -20,6 +20,7 @@ interface UseWebSocketOptions {
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ws, setWs] = useState<WebSocket>();
   const wsRef = useRef<WebSocket | null>(null);
   const tokensRef = useRef<Map<string, TokenData>>(new Map());
   const subscriptionsRef = useRef<Set<string>>(new Set());
@@ -222,11 +223,36 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     try {
       console.log('Attempting to connect to WebSocket...');
-      const ws = new WebSocket(
+      wsRef.current = new WebSocket(
         import.meta.env.VITE_WS_URL || 'wss://api-rs.dexcelerate.com/ws'
       );
-      wsRef.current = ws;
+      setWs(wsRef.current);
+    } catch (err) {
+      console.error('Failed to create WebSocket connection:', err);
+      setError('Failed to create WebSocket connection');
+    }
+  }, []);
 
+  const disconnect = useCallback(() => {
+    console.log('Disconnecting WebSocket...');
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Manual disconnect');
+      wsRef.current = null;
+    }
+    setWs(undefined);
+    setIsConnected(false);
+  }, []);
+
+  useEffect(() => {
+    connect();
+
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  useEffect(() => {
+    if (ws) {
       ws.onopen = () => {
         console.log('WebSocket connected successfully');
         setIsConnected(true);
@@ -252,27 +278,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           console.error('Failed to parse WebSocket message:', err);
         }
       };
-    } catch (err) {
-      console.error('Failed to create WebSocket connection:', err);
-      setError('Failed to create WebSocket connection');
     }
-  }, [handleMessage, onError]);
-
-  const disconnect = useCallback(() => {
-    console.log('Disconnecting WebSocket...');
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'Manual disconnect');
-      wsRef.current = null;
-    }
-    setIsConnected(false);
-  }, []);
-
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
-    };
-  }, [connect, disconnect]);
+  }, [handleMessage, onError, ws]);
 
   return {
     isConnected,
