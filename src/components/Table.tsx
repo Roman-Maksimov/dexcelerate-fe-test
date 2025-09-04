@@ -100,57 +100,31 @@ export const Table: FC = () => {
     subscribeToPairStats,
     unsubscribeFromPairStats,
   } = useWebSocket({
-    onTokensUpdate: newTokens => {
-      // This is a full dataset replacement from scanner-pairs event
-      console.log('Received full dataset update:', newTokens.length, 'tokens');
-
-      // For infinite query, we need to replace the first page with new data
+    onScanner: updateData => {
+      // Update specific token in infinite query cache
       const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
 
-      queryClient.setQueryData(queryKey, (oldData: any) => {
-        if (!oldData?.pages) return oldData;
+      queryClient.setQueryData(
+        queryKey,
+        (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
+          if (!oldData?.pages) return oldData;
 
-        // Replace the first page with new tokens, keep other pages
-        const updatedPages = [...oldData.pages];
-
-        if (updatedPages.length > 0) {
-          // Convert tokens back to API format for the first page
-          const firstPageTokens = newTokens.slice(0, 100).map((token: any) => {
-            // This is a simplified conversion - in real implementation,
-            // you'd need to convert TokenData back to ScannerResult format
-            return {
-              pairAddress: token.id,
-              token1Name: token.tokenName,
-              token1Symbol: token.tokenSymbol,
-              token1Address: token.tokenAddress,
-              price: token.priceUsd.toString(),
-              volume: token.volumeUsd.toString(),
-              // ... other fields as needed
-            };
-          });
-
-          updatedPages[0] = {
-            ...updatedPages[0],
-            data: {
-              ...updatedPages[0].data,
-              pairs: firstPageTokens,
-            },
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => {
+              return {
+                ...page,
+                data: {
+                  ...page.data,
+                  pairs: updateData.results.pairs,
+                },
+              };
+            }),
           };
         }
-
-        return {
-          ...oldData,
-          pages: updatedPages,
-          allPages: [...updatedPages],
-        };
-      });
-
-      // Subscribe to real-time updates for all new tokens
-      // newTokens.forEach((token: any) => {
-      //   subscribeToPair(token);
-      //   subscribeToPairStats(token);
-      // });
+      );
     },
+
     onTick: updateData => {
       // Update specific token in infinite query cache
       const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];

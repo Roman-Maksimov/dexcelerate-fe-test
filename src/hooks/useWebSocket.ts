@@ -5,16 +5,16 @@ import {
   IncomingWebSocketMessage,
   OutgoingWebSocketMessage,
   PairStatsMsgData,
-  ScannerResult,
+  ScannerPairsEventPayload,
   SupportedChainName,
   TickEventPayload,
   TokenData,
   WpegPricesEventPayload,
 } from '../scheme/type';
-import { convertToTokenData } from '../utils/tokenUtils';
 
 interface UseWebSocketOptions {
   onTokensUpdate?: (tokens: TokenData[]) => void;
+  onScanner?: (data: ScannerPairsEventPayload) => void;
   onTick?: (data: TickEventPayload) => void;
   onStats?: (data: PairStatsMsgData) => void;
   onError?: (error: Event) => void;
@@ -37,7 +37,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     >
   >(new Map());
 
-  const { onTokensUpdate, onTick, onStats, onError } = options;
+  const { onTokensUpdate, onScanner, onTick, onStats, onError } = options;
 
   const sendMessage = useCallback((message: OutgoingWebSocketMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -147,39 +147,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     [sendMessage]
   );
 
-  const handleScannerPairsUpdate = useCallback(
-    (data: { results: { pairs: ScannerResult[] } }) => {
-      console.log(
-        'Received scanner-pairs update:',
-        data.results.pairs.length,
-        'pairs'
-      );
-
-      const newTokens = data.results.pairs.map((result: ScannerResult) =>
-        convertToTokenData(result)
-      );
-
-      // Clear existing subscriptions
-      subscriptionsRef.current.clear();
-
-      // Update tokens map - this is a full dataset replacement
-      tokensRef.current.clear();
-      newTokens.forEach((token: TokenData) => {
-        tokensRef.current.set(token.id, token);
-      });
-
-      // Subscribe to individual pair updates for each token
-      newTokens.forEach((token: TokenData) => {
-        subscribeToPair(token);
-        subscribeToPairStats(token);
-      });
-
-      // Notify parent component of full dataset replacement
-      onTokensUpdate?.(newTokens);
-    },
-    [onTokensUpdate, subscribeToPair, subscribeToPairStats]
-  );
-
   const handleWpegPricesUpdate = useCallback((data: WpegPricesEventPayload) => {
     console.log('Received WPEG prices:', data.prices);
     // Здесь можно добавить логику для обновления цен WPEG токенов
@@ -190,7 +157,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     (message: IncomingWebSocketMessage) => {
       switch (message.event) {
         case 'scanner-pairs':
-          handleScannerPairsUpdate(message.data);
+          onScanner?.(message.data);
           break;
         case 'tick':
           onTick?.(message.data);
@@ -205,7 +172,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           console.log('Unknown WebSocket message type:', message);
       }
     },
-    [handleScannerPairsUpdate, handleWpegPricesUpdate, onStats, onTick]
+    [handleWpegPricesUpdate, onScanner, onStats, onTick]
   );
 
   const connect = useCallback(() => {
