@@ -7,6 +7,7 @@ import {
   PairStatsMsgData,
   ScannerResult,
   TokenData,
+  WpegPricesEventPayload,
   WsTokenSwap,
 } from '../scheme/type';
 import { convertToTokenData } from '../utils/tokenUtils';
@@ -195,6 +196,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     [onTokenUpdate]
   );
 
+  const handleWpegPricesUpdate = useCallback((data: WpegPricesEventPayload) => {
+    console.log('Received WPEG prices:', data.prices);
+    // Здесь можно добавить логику для обновления цен WPEG токенов
+    // Например, обновить глобальное состояние с ценами
+  }, []);
+
   const handleMessage = useCallback(
     (message: IncomingWebSocketMessage) => {
       switch (message.event) {
@@ -207,11 +214,19 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         case 'pair-stats':
           handlePairStatsUpdate(message.data);
           break;
+        case 'wpeg-prices':
+          handleWpegPricesUpdate(message.data);
+          break;
         default:
           console.log('Unknown WebSocket message type:', message);
       }
     },
-    [handlePairStatsUpdate, handleScannerPairsUpdate, handleTickUpdate]
+    [
+      handlePairStatsUpdate,
+      handleScannerPairsUpdate,
+      handleTickUpdate,
+      handleWpegPricesUpdate,
+    ]
   );
 
   const connect = useCallback(() => {

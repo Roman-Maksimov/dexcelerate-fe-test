@@ -454,13 +454,23 @@ export interface ScannerPairsEventPayload {
   };
 }
 
+export interface WpegPricesEventPayload {
+  prices: {
+    BASE: string;
+    BSC: string;
+    ETH: string;
+    SOL: string;
+  };
+}
+
 /**
  * All incoming WebSocket message types you need to handle
  */
 export type IncomingWebSocketMessage =
   | { event: 'tick'; data: TickEventPayload }
   | { event: 'pair-stats'; data: PairStatsMsgData }
-  | { event: 'scanner-pairs'; data: ScannerPairsEventPayload };
+  | { event: 'scanner-pairs'; data: ScannerPairsEventPayload }
+  | { event: 'wpeg-prices'; data: WpegPricesEventPayload };
 
 /**
  * Helper to convert chain ID to chain name
