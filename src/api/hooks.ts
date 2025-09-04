@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { AxiosResponse } from 'axios';
 
 import { GetScannerResultParams, ScannerApiResponse } from '../scheme/type';
@@ -15,5 +15,27 @@ export const useGetScannerQuery = (
     queryKey: [API_KEY_GET_SCANNER, params],
     queryFn: () => getScanner(params),
     ...options,
+  });
+};
+
+export const useGetScannerInfiniteQuery = (
+  baseParams: Omit<GetScannerResultParams, 'page'>
+) => {
+  return useInfiniteQuery<AxiosResponse<ScannerApiResponse>>({
+    queryKey: [API_KEY_GET_SCANNER, baseParams],
+    queryFn: ({ pageParam = 1 }) =>
+      getScanner({ ...baseParams, page: pageParam as number }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages, lastPageParam) => {
+      // If we got less than 100 items, we've reached the end
+      const currentPageItems = lastPage.data.pairs?.length || 0;
+      const itemsPerPage = 100;
+
+      if (currentPageItems < itemsPerPage) {
+        return undefined; // No more pages
+      }
+
+      return (lastPageParam as number) + 1; // Next page
+    },
   });
 };

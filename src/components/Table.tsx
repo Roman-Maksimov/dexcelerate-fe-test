@@ -9,7 +9,7 @@ import React, {
   useState,
 } from 'react';
 
-import { useGetScannerQuery } from '../api/hooks';
+import { useGetScannerInfiniteQuery } from '../api/hooks';
 import { useWebSocket } from '../hooks/useWebSocket';
 import {
   GetScannerResultParams,
@@ -66,103 +66,94 @@ export const Table: FC = () => {
     column: 'volumeUsd',
     direction: 'desc',
   });
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const earlyLoadRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Create API parameters with current sort and pagination
-  const apiParams = useMemo(() => {
+  // Create API parameters with current sort (without page)
+  const baseApiParams = useMemo(() => {
     const sortParams = mapColumnToApiParams(sort.column, sort.direction);
     return {
       ...TRENDING_TOKENS_FILTERS,
       ...sortParams,
-      page,
     };
-  }, [sort, page]);
+  }, [sort]);
 
-  // Fetch data with current sort parameters
-  const { data: currentPageData, isLoading: isInitialLoading } =
-    useGetScannerQuery(apiParams);
+  // Use infinite query for pagination
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useGetScannerInfiniteQuery(baseApiParams);
 
-  // Get all tokens from react-query cache
+  // Flatten all pages into a single array of tokens
   const allTokens = useMemo(() => {
+    if (!data?.pages) return [];
+
     const tokens: TokenData[] = [];
-
-    // Get tokens from all pages for current sort
-    for (let p = 1; p <= page; p++) {
-      const pageParams = { ...apiParams, page: p };
-      const pageData = queryClient.getQueryData([
-        'API_KEY_GET_SCANNER',
-        pageParams,
-      ]) as any;
-
-      if (pageData?.data?.pairs) {
-        const convertedTokens = pageData.data.pairs.map(convertToTokenData);
+    data.pages.forEach(page => {
+      if (page.data.pairs) {
+        const convertedTokens = page.data.pairs.map(convertToTokenData);
         tokens.push(...convertedTokens);
       }
-    }
+    });
 
     return tokens;
-  }, [queryClient, apiParams, page]);
+  }, [data]);
 
   // WebSocket connection
   const { isConnected, subscribeToScanner, unsubscribeFromScanner } =
     useWebSocket({
       onTokensUpdate: newTokens => {
-        // Update react-query cache with new tokens
-        const sortParams = mapColumnToApiParams(sort.column, sort.direction);
-        const baseParams = { ...TRENDING_TOKENS_FILTERS, ...sortParams };
+        // Update infinite query cache with new tokens
+        const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
 
-        // Update cache for all pages
-        for (let p = 1; p <= page; p++) {
-          const pageParams = { ...baseParams, page: p };
-          const queryKey = ['API_KEY_GET_SCANNER', pageParams];
+        queryClient.setQueryData(queryKey, (oldData: any) => {
+          if (!oldData?.pages) return oldData;
 
-          queryClient.setQueryData(queryKey, (oldData: any) => {
-            if (!oldData) return oldData;
+          // Update each page with new tokens
+          const updatedPages = oldData.pages.map(
+            (page: any, pageIndex: number) => {
+              const startIndex = pageIndex * 100;
+              const endIndex = (pageIndex + 1) * 100;
+              const pageTokens = newTokens.slice(startIndex, endIndex);
 
-            // Replace pairs with new tokens for this page
-            const startIndex = (p - 1) * 100;
-            const endIndex = p * 100;
-            const pageTokens = newTokens.slice(startIndex, endIndex);
+              return {
+                ...page,
+                data: {
+                  ...page.data,
+                  pairs: pageTokens.map((token: any) => {
+                    // Convert back to API format if needed
+                    return {
+                      id: token.id,
+                      tokenName: token.tokenName,
+                      tokenSymbol: token.tokenSymbol,
+                      // ... other fields
+                    };
+                  }),
+                },
+              };
+            }
+          );
 
-            return {
-              ...oldData,
-              data: {
-                ...oldData.data,
-                pairs: pageTokens.map((token: any) => {
-                  // Convert back to API format if needed
-                  return {
-                    id: token.id,
-                    tokenName: token.tokenName,
-                    tokenSymbol: token.tokenSymbol,
-                    // ... other fields
-                  };
-                }),
-              },
-            };
-          });
-        }
+          return {
+            ...oldData,
+            pages: updatedPages,
+          };
+        });
       },
       onTokenUpdate: updatedToken => {
-        // Update specific token in all cached pages
-        const sortParams = mapColumnToApiParams(sort.column, sort.direction);
-        const baseParams = { ...TRENDING_TOKENS_FILTERS, ...sortParams };
+        // Update specific token in infinite query cache
+        const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
 
-        for (let p = 1; p <= page; p++) {
-          const pageParams = { ...baseParams, page: p };
-          const queryKey = ['API_KEY_GET_SCANNER', pageParams];
+        queryClient.setQueryData(queryKey, (oldData: any) => {
+          if (!oldData?.pages) return oldData;
 
-          queryClient.setQueryData(queryKey, (oldData: any) => {
-            if (!oldData?.data?.pairs) return oldData;
+          const updatedPages = oldData.pages.map((page: any) => {
+            if (!page.data?.pairs) return page;
 
             return {
-              ...oldData,
+              ...page,
               data: {
-                ...oldData.data,
-                pairs: oldData.data.pairs.map((pair: any) => {
+                ...page.data,
+                pairs: page.data.pairs.map((pair: any) => {
                   const tokenId = `${pair.exchange}-${pair.id}`;
                   if (tokenId === updatedToken.id) {
                     // Convert updated token back to API format
@@ -176,44 +167,34 @@ export const Table: FC = () => {
               },
             };
           });
-        }
+
+          return {
+            ...oldData,
+            pages: updatedPages,
+          };
+        });
       },
     });
-
-  // Update pagination info based on current page data
-  useEffect(() => {
-    if (currentPageData?.data?.pairs) {
-      const currentPageItems = currentPageData.data.pairs.length;
-      const itemsPerPage = 100; // API always returns 100 items per page
-
-      // If we got less than 100 items, we've reached the end
-      if (currentPageItems < itemsPerPage) {
-        setHasMore(false);
-      } else {
-        setHasMore(true);
-      }
-    }
-  }, [currentPageData]);
 
   // Subscribe to WebSocket updates with current sort parameters
   useEffect(() => {
     if (isConnected) {
-      subscribeToScanner(apiParams);
+      subscribeToScanner(baseApiParams);
       return () => {
-        unsubscribeFromScanner(apiParams);
+        unsubscribeFromScanner(baseApiParams);
       };
     }
-  }, [isConnected, subscribeToScanner, unsubscribeFromScanner, apiParams]);
+  }, [isConnected, subscribeToScanner, unsubscribeFromScanner, baseApiParams]);
 
   // No client-side sorting needed - server handles it
   const sortedTokens = allTokens;
 
-  // Load next page
+  // Load next page using infinite query
   const loadNextPage = useCallback(() => {
-    if (hasMore && !isInitialLoading) {
-      setPage(prev => prev + 1);
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [hasMore, isInitialLoading]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -269,8 +250,8 @@ export const Table: FC = () => {
 
   // Reset pagination when sort changes
   useEffect(() => {
-    setPage(1);
-    setHasMore(true);
+    // Infinite query will automatically reset when queryKey changes
+    // No manual reset needed
   }, [sort]);
 
   const handleSort = (column: string) => {
@@ -331,8 +312,8 @@ export const Table: FC = () => {
             {sortedTokens.map((token, index) => {
               // Add early loading trigger when we're 80% through the data
               const shouldShowEarlyTrigger =
-                hasMore &&
-                !isInitialLoading &&
+                hasNextPage &&
+                !isLoading &&
                 index === Math.floor(sortedTokens.length * 0.8) &&
                 sortedTokens.length > 50; // Only show if we have enough data
 
@@ -351,7 +332,7 @@ export const Table: FC = () => {
               );
             })}
 
-            {isInitialLoading &&
+            {isLoading &&
               Array.from({ length: 100 }).map((_, index) => (
                 <TableRowSkeleton key={`skeleton-${index}`} />
               ))}
@@ -359,15 +340,17 @@ export const Table: FC = () => {
         </table>
       </div>
 
-      {allTokens.length === 0 && !isInitialLoading && (
+      {allTokens.length === 0 && !isLoading && (
         <div className="text-center py-8 text-gray-400">No data to display</div>
       )}
 
       {/* Infinite scroll trigger and loading indicator */}
-      {hasMore && (
+      {hasNextPage && (
         <div ref={loadMoreRef} className="px-4 py-4 bg-gray-800">
           <div className="text-center text-gray-400 text-sm">
-            Scroll down to load more
+            {isFetchingNextPage
+              ? 'Loading more...'
+              : 'Scroll down to load more'}
           </div>
         </div>
       )}
@@ -377,7 +360,9 @@ export const Table: FC = () => {
           <div>
             Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} |{' '}
             Tokens: {allTokens.length}
-            {page > 1 && ` | Page ${page}`}
+            {data?.pages &&
+              data.pages.length > 1 &&
+              ` | Pages: ${data.pages.length}`}
           </div>
         </div>
       </div>
