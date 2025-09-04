@@ -1,4 +1,11 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useGetScannerQuery } from '../api/hooks';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -63,6 +70,7 @@ export const Table: FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const earlyLoadRef = useRef<HTMLDivElement>(null);
 
   // Create API parameters with current sort and pagination
   const apiParams = useMemo(() => {
@@ -153,10 +161,39 @@ export const Table: FC = () => {
           loadNextPage();
         }
       },
-      { threshold: 0.1 }
+      {
+        threshold: 0.1,
+        rootMargin: '200px', // Start loading 200px before the element comes into view
+      }
     );
 
     const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [loadNextPage]);
+
+  // Early loading trigger - starts loading when user is 80% through current data
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) {
+          loadNextPage();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '500px', // Start loading 500px before the element comes into view
+      }
+    );
+
+    const currentRef = earlyLoadRef.current;
     if (currentRef) {
       observer.observe(currentRef);
     }
@@ -299,32 +336,51 @@ export const Table: FC = () => {
             </tr>
           </thead>
           <tbody className="bg-gray-900 divide-y divide-gray-700">
-            {sortedTokens.map((token, index) => (
-              <tr
-                key={token.id}
-                className="hover:bg-gray-800 transition-colors"
-              >
-                {COLUMNS.map(column => (
-                  <td
-                    key={column.key}
-                    className={`${
-                      column.align === 'right'
-                        ? 'text-right'
-                        : column.align === 'center'
-                          ? 'text-center'
-                          : 'text-left'
-                    }`}
-                  >
-                    <div
-                      className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
-                      style={{ width: column.width }}
-                    >
-                      <TableCell token={token} column={column} index={index} />
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {sortedTokens.map((token, index) => {
+              // Add early loading trigger when we're 80% through the data
+              const shouldShowEarlyTrigger =
+                hasMore &&
+                !isLoadingMore &&
+                index === Math.floor(sortedTokens.length * 0.8) &&
+                sortedTokens.length > 50; // Only show if we have enough data
+
+              return (
+                <React.Fragment key={token.id}>
+                  {shouldShowEarlyTrigger && (
+                    <tr>
+                      <td colSpan={COLUMNS.length} className="p-0">
+                        <div ref={earlyLoadRef} className="h-1 w-full" />
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="hover:bg-gray-800 transition-colors">
+                    {COLUMNS.map(column => (
+                      <td
+                        key={column.key}
+                        className={`${
+                          column.align === 'right'
+                            ? 'text-right'
+                            : column.align === 'center'
+                              ? 'text-center'
+                              : 'text-left'
+                        }`}
+                      >
+                        <div
+                          className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
+                          style={{ width: column.width }}
+                        >
+                          <TableCell
+                            token={token}
+                            column={column}
+                            index={index}
+                          />
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
