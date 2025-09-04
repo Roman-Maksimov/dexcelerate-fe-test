@@ -56,10 +56,17 @@ const COLUMNS: TokenTableColumn[] = [
     align: 'center',
   },
   {
-    key: 'transactions',
-    label: 'Buys/Sells',
-    sortable: false,
-    width: '120px',
+    key: 'buys',
+    label: 'Buys',
+    sortable: true,
+    width: '80px',
+    align: 'center',
+  },
+  {
+    key: 'sells',
+    label: 'Sells',
+    sortable: true,
+    width: '80px',
     align: 'center',
   },
   {
@@ -127,6 +134,14 @@ export const Table: FC = () => {
   }, [isConnected, subscribeToScanner, unsubscribeFromScanner]);
 
   const getNestedValue = (obj: TokenData, path: string) => {
+    // Handle special cases for buys and sells
+    if (path === 'buys') {
+      return obj.transactions.buys;
+    }
+    if (path === 'sells') {
+      return obj.transactions.sells;
+    }
+
     return path
       .split('.')
       .reduce(
@@ -249,11 +264,21 @@ export const Table: FC = () => {
           </span>
         );
 
-      case 'transactions':
+      case 'buys':
         return (
           <div className="text-sm text-center">
-            <div className="text-green-400">{token.transactions.buys}</div>
-            <div className="text-red-400">{token.transactions.sells}</div>
+            <div className="text-green-400 font-mono">
+              {formatNumber(token.transactions.buys)}
+            </div>
+          </div>
+        );
+
+      case 'sells':
+        return (
+          <div className="text-sm text-center">
+            <div className="text-red-400 font-mono">
+              {formatNumber(token.transactions.sells)}
+            </div>
           </div>
         );
 
