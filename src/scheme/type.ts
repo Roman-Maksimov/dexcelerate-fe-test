@@ -527,6 +527,7 @@ export interface TokenData {
   priceUsd: number;
   volumeUsd: number;
   mcap: number;
+  totalSupply: number; // For market cap calculations
   priceChangePcs: {
     '5m': number;
     '1h': number;

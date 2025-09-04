@@ -1,8 +1,4 @@
-import {
-  InfiniteData,
-  useInfiniteQuery,
-  useQuery,
-} from '@tanstack/react-query';
+import { InfiniteData, useInfiniteQuery } from '@tanstack/react-query';
 import { AxiosResponse } from 'axios';
 
 import {
@@ -12,20 +8,8 @@ import {
 } from '../scheme/type';
 import { convertToTokenData } from '../utils/tokenUtils';
 import { getScanner } from './requests';
-import { UseQueryRequestOptions } from './types';
 
 export const API_KEY_GET_SCANNER = 'API_KEY_GET_SCANNER';
-
-export const useGetScannerQuery = (
-  params: GetScannerResultParams,
-  options?: UseQueryRequestOptions<AxiosResponse<ScannerApiResponse>>
-) => {
-  return useQuery<AxiosResponse<ScannerApiResponse>>({
-    queryKey: [API_KEY_GET_SCANNER, params],
-    queryFn: () => getScanner(params),
-    ...options,
-  });
-};
 
 export const useGetScannerInfiniteQuery = (
   baseParams: Omit<GetScannerResultParams, 'page'>
@@ -33,22 +17,38 @@ export const useGetScannerInfiniteQuery = (
   return useInfiniteQuery<
     AxiosResponse<ScannerApiResponse>,
     undefined,
-    InfiniteData<AxiosResponse<ScannerApiResponse>> & { allPages: TokenData[] }
+    InfiniteData<AxiosResponse<ScannerApiResponse>> & {
+      allPages: TokenData[];
+      pairs: Record<string, TokenData>;
+    }
   >({
     queryKey: [API_KEY_GET_SCANNER, baseParams],
     queryFn: ({ pageParam = 1 }) =>
       getScanner({ ...baseParams, page: pageParam as number }),
     select: data => {
-      const allPages = data.pages.reduce<TokenData[]>((prev, page) => {
-        if (page.data.pairs) {
-          const convertedTokens = page.data.pairs.map(convertToTokenData);
-          prev.push(...convertedTokens);
-        }
+      const [allPages, pairs] = data.pages.reduce<
+        [TokenData[], Record<string, TokenData>]
+      >(
+        (prev, page) => {
+          if (page.data.pairs) {
+            const convertedTokens = page.data.pairs.map(convertToTokenData);
+            const convertedTokensMap = convertedTokens.reduce<
+              Record<string, TokenData>
+            >((prev, token) => {
+              prev[token.pairAddress] = token;
+              return prev;
+            }, {});
 
-        return prev;
-      }, []);
+            prev[0].push(...convertedTokens);
+            prev[1] = { ...prev[1], ...convertedTokensMap };
+          }
 
-      return { ...data, allPages };
+          return prev;
+        },
+        [[], {}]
+      );
+
+      return { ...data, allPages, pairs };
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages, lastPageParam) => {

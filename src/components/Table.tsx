@@ -1,4 +1,5 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
+import { AxiosResponse } from 'axios';
 import React, {
   FC,
   Suspense,
@@ -10,12 +11,15 @@ import React, {
 } from 'react';
 
 import { useGetScannerInfiniteQuery } from '../api/hooks';
+import { usePrevious } from '../hooks/usePrevious';
 import { useWebSocket } from '../hooks/useWebSocket';
 import {
   GetScannerResultParams,
   OrderBy,
+  ScannerApiResponse,
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
+  WsTokenSwap,
 } from '../scheme/type';
 import { COLUMNS } from './columns';
 import { TableRow } from './TableRow';
@@ -60,13 +64,14 @@ const mapColumnToApiParams = (
 };
 
 export const Table: FC = () => {
+  const queryClient = useQueryClient();
   const [sort, setSort] = useState<TokenTableSort>({
     column: 'volumeUsd',
     direction: 'desc',
   });
+  const [isInit, setInit] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const earlyLoadRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
 
   // Create API parameters with current sort (without page)
   const baseApiParams = useMemo(() => {
@@ -81,83 +86,165 @@ export const Table: FC = () => {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useGetScannerInfiniteQuery(baseApiParams);
 
-  // WebSocket connection
-  const { isConnected, subscribeToScanner, unsubscribeFromScanner } =
-    useWebSocket({
-      onTokensUpdate: newTokens => {
-        // Update infinite query cache with new tokens
-        const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+  const prevIsLoading = usePrevious(isLoading);
+  const prevIsFetchingNextPage = usePrevious(isFetchingNextPage);
 
-        queryClient.setQueryData(queryKey, (oldData: any) => {
+  // WebSocket connection
+  const {
+    isConnected,
+    subscriptionsRef,
+    subscribeToScanner,
+    unsubscribeFromScanner,
+    subscribeToPair,
+    unsubscribeFromPair,
+    subscribeToPairStats,
+  } = useWebSocket({
+    onTokensUpdate: newTokens => {
+      // This is a full dataset replacement from scanner-pairs event
+      console.log('Received full dataset update:', newTokens.length, 'tokens');
+
+      // For infinite query, we need to replace the first page with new data
+      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+
+      queryClient.setQueryData(queryKey, (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+
+        // Replace the first page with new tokens, keep other pages
+        const updatedPages = [...oldData.pages];
+
+        if (updatedPages.length > 0) {
+          // Convert tokens back to API format for the first page
+          const firstPageTokens = newTokens.slice(0, 100).map((token: any) => {
+            // This is a simplified conversion - in real implementation,
+            // you'd need to convert TokenData back to ScannerResult format
+            return {
+              pairAddress: token.id,
+              token1Name: token.tokenName,
+              token1Symbol: token.tokenSymbol,
+              token1Address: token.tokenAddress,
+              price: token.priceUsd.toString(),
+              volume: token.volumeUsd.toString(),
+              // ... other fields as needed
+            };
+          });
+
+          updatedPages[0] = {
+            ...updatedPages[0],
+            data: {
+              ...updatedPages[0].data,
+              pairs: firstPageTokens,
+            },
+          };
+        }
+
+        return {
+          ...oldData,
+          pages: updatedPages,
+          allPages: [...updatedPages],
+        };
+      });
+
+      // Subscribe to real-time updates for all new tokens
+      // newTokens.forEach((token: any) => {
+      //   subscribeToPair(token);
+      //   subscribeToPairStats(token);
+      // });
+    },
+    onTokenUpdate: updateData => {
+      // Update specific token in infinite query cache
+      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+
+      queryClient.setQueryData(
+        queryKey,
+        (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
           if (!oldData?.pages) return oldData;
 
-          // Update each page with new tokens
-          const updatedPages = oldData.pages.map(
-            (page: any, pageIndex: number) => {
-              const startIndex = pageIndex * 100;
-              const endIndex = (pageIndex + 1) * 100;
-              const pageTokens = newTokens.slice(startIndex, endIndex);
-
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => {
               return {
                 ...page,
                 data: {
                   ...page.data,
-                  pairs: pageTokens.map((token: any) => {
-                    // Convert back to API format if needed
+                  pairs: page.data.pairs.map(item => {
+                    const { pair, swaps } = updateData;
+                    const tokenId = pair.pair;
+
+                    // Get the latest non-outlier swap
+                    const latestSwap = swaps
+                      .filter((swap: WsTokenSwap) => !swap.isOutlier)
+                      .pop();
+
+                    if (item.pairAddress !== tokenId || !latestSwap) {
+                      return item;
+                    }
+
+                    // Update price from the latest swap
+                    const newPrice = parseFloat(latestSwap.priceToken1Usd);
+
+                    // Recalculate market cap using total supply from token data
+                    const newMarketCap =
+                      parseFloat(item.token1TotalSupplyFormatted) * newPrice;
+
+                    // Calculate volume from this swap
+                    const swapVolume =
+                      parseFloat(latestSwap.amountToken1) * newPrice;
+
+                    const [buys, sells] = swaps.reduce(
+                      (prev, swap) => {
+                        const isBuy =
+                          swap.tokenInAddress === item.token1Address;
+
+                        return isBuy
+                          ? [prev[0] + 1, prev[1]]
+                          : [prev[0], prev[1] + 1];
+                      },
+                      [0, 0]
+                    );
+
                     return {
-                      id: token.id,
-                      tokenName: token.tokenName,
-                      tokenSymbol: token.tokenSymbol,
-                      // ... other fields
+                      ...item,
+                      price: newPrice,
+                      pairMcapUsd: newMarketCap,
+                      volume: item.volume + swapVolume,
+                      buys: (item.buys ?? 0) + buys,
+                      sells: (item.sells ?? 0) + sells,
                     };
                   }),
                 },
               };
-            }
-          );
-
-          return {
-            ...oldData,
-            pages: updatedPages,
+            }),
           };
-        });
-      },
-      onTokenUpdate: updatedToken => {
-        // Update specific token in infinite query cache
-        const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+        }
+      );
 
-        queryClient.setQueryData(queryKey, (oldData: any) => {
-          if (!oldData?.pages) return oldData;
+      // // Subscribe to real-time updates for this token
+      // subscribeToPair(updatedToken);
+      // subscribeToPairStats(updatedToken);
+    },
+  });
 
-          const updatedPages = oldData.pages.map((page: any) => {
-            if (!page.data?.pairs) return page;
+  const subscribe = useCallback(() => {
+    // Clean up obsolete pairs
+    Array.from(subscriptionsRef.current.keys())
+      .filter(pairAddress => !data?.pairs[pairAddress])
+      .forEach(pairAddress => {
+        unsubscribeFromPair(pairAddress);
+      });
 
-            return {
-              ...page,
-              data: {
-                ...page.data,
-                pairs: page.data.pairs.map((pair: any) => {
-                  const tokenId = `${pair.exchange}-${pair.id}`;
-                  if (tokenId === updatedToken.id) {
-                    // Convert updated token back to API format
-                    return {
-                      ...pair,
-                      // Update fields from updatedToken
-                    };
-                  }
-                  return pair;
-                }),
-              },
-            };
-          });
-
-          return {
-            ...oldData,
-            pages: updatedPages,
-          };
-        });
-      },
-    });
+    data?.allPages
+      .filter(token => !subscriptionsRef.current.has(token.pairAddress))
+      .forEach(token => {
+        subscribeToPair(token);
+        // subscribeToPairStats(token);
+      });
+  }, [
+    data?.allPages,
+    data?.pairs,
+    subscribeToPair,
+    subscriptionsRef,
+    unsubscribeFromPair,
+  ]);
 
   // Subscribe to WebSocket updates with current sort parameters
   useEffect(() => {
@@ -168,6 +255,28 @@ export const Table: FC = () => {
       };
     }
   }, [isConnected, subscribeToScanner, unsubscribeFromScanner, baseApiParams]);
+
+  useEffect(() => {
+    if (isConnected && !isInit && !!data?.allPages.length) {
+      subscribe();
+      setInit(true);
+    }
+  }, [data?.allPages, isConnected, isInit, subscribe]);
+
+  useEffect(() => {
+    if (
+      (prevIsLoading && !isLoading) ||
+      (prevIsFetchingNextPage && !isFetchingNextPage)
+    ) {
+      subscribe();
+    }
+  }, [
+    isFetchingNextPage,
+    isLoading,
+    prevIsFetchingNextPage,
+    prevIsLoading,
+    subscribe,
+  ]);
 
   // Load next page using infinite query
   const loadNextPage = useCallback(() => {
@@ -227,12 +336,6 @@ export const Table: FC = () => {
       }
     };
   }, [loadNextPage]);
-
-  // Reset pagination when sort changes
-  useEffect(() => {
-    // Infinite query will automatically reset when queryKey changes
-    // No manual reset needed
-  }, [sort]);
 
   const handleSort = (column: string) => {
     setSort(prev => ({

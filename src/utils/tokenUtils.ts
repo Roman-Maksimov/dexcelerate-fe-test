@@ -28,6 +28,7 @@ export function convertToTokenData(result: ScannerResult): TokenData {
   const mcap = calculateMarketCap(result);
   const liquidityCurrent = parseFloat(result.liquidity);
   const liquidityChangePc = parseFloat(result.percentChangeInLiquidity);
+  const totalSupply = parseFloat(result.token1TotalSupplyFormatted);
 
   return {
     id: result.pairAddress,
@@ -40,6 +41,7 @@ export function convertToTokenData(result: ScannerResult): TokenData {
     priceUsd,
     volumeUsd,
     mcap,
+    totalSupply,
     priceChangePcs: {
       '5m': parseFloat(result.diff5M),
       '1h': parseFloat(result.diff1H),
@@ -106,12 +108,12 @@ export function formatPrice(price: number): string {
 
   const decimal = new Decimal(price);
 
-  if (price >= 1) {
-    return decimal.toFixed(2);
-  }
-  if (price >= 0.01) {
-    return decimal.toFixed(4);
-  }
+  // if (price >= 1) {
+  //   return decimal.toFixed(2);
+  // }
+  // if (price >= 0.01) {
+  //   return decimal.toFixed(4);
+  // }
   if (price >= 0.0001) {
     return formatPriceWithSubscript(decimal.toFixed(6));
   }
@@ -132,20 +134,24 @@ export function formatPrice(price: number): string {
  */
 function formatPriceWithSubscript(decimal: string | Decimal): string {
   const str = typeof decimal === 'string' ? decimal : decimal.toFixed(20); // Use high precision
-  const match = str.match(/^0\.(0+)(\d+)$/);
+  const match = str.match(/^([0-1])\.(0+)(\d+)$/);
 
   if (!match) {
     return typeof decimal === 'string' ? decimal : decimal.toFixed(10);
   }
 
-  const leadingZeros = match[1];
-  const significantDigits = match[2];
+  const leadingZeros = match[2];
+  const significantDigits = new Decimal(match[3] ?? 0)
+    .mul(0.0001)
+    .toSignificantDigits(4)
+    .toString()
+    .replace('0.', '');
 
   // Only use subscript notation if there are 3 or more leading zeros
   if (leadingZeros && leadingZeros.length >= 3) {
     const subscriptNumber = leadingZeros.length;
     const subscript = getSubscriptNumber(subscriptNumber);
-    return `0.0${subscript}${significantDigits}`;
+    return `${match[1]}.0${subscript}${significantDigits}`;
   }
 
   // For 2 or fewer leading zeros, use regular formatting

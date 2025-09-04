@@ -6,15 +6,21 @@ import {
   OutgoingWebSocketMessage,
   PairStatsMsgData,
   ScannerResult,
+  SupportedChainName,
   TokenData,
   WpegPricesEventPayload,
   WsTokenSwap,
 } from '../scheme/type';
 import { convertToTokenData } from '../utils/tokenUtils';
 
+interface OnTokenUpdateData {
+  pair: { pair: string };
+  swaps: WsTokenSwap[];
+}
+
 interface UseWebSocketOptions {
   onTokensUpdate?: (tokens: TokenData[]) => void;
-  onTokenUpdate?: (token: TokenData) => void;
+  onTokenUpdate?: (data: OnTokenUpdateData) => void;
   onError?: (error: Event) => void;
 }
 
@@ -24,7 +30,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [ws, setWs] = useState<WebSocket>();
   const wsRef = useRef<WebSocket | null>(null);
   const tokensRef = useRef<Map<string, TokenData>>(new Map());
-  const subscriptionsRef = useRef<Set<string>>(new Set());
+  const subscriptionsRef = useRef<
+    Map<
+      string,
+      {
+        pair: string;
+        token: string;
+        chain: SupportedChainName;
+      }
+    >
+  >(new Map());
 
   const { onTokensUpdate, onTokenUpdate, onError } = options;
 
@@ -43,16 +58,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         return;
       }
 
+      const data = {
+        pair: token.pairAddress,
+        token: token.tokenAddress,
+        chain: token.chain,
+      };
+
       sendMessage({
         event: 'subscribe-pair',
-        data: {
-          pair: token.pairAddress,
-          token: token.tokenAddress,
-          chain: token.chain,
-        },
+        data,
       });
 
-      subscriptionsRef.current.add(subscriptionKey);
+      subscriptionsRef.current.set(subscriptionKey, data);
     },
     [sendMessage]
   );
@@ -64,16 +81,52 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         return;
       }
 
+      const data = {
+        pair: token.pairAddress,
+        token: token.tokenAddress,
+        chain: token.chain,
+      };
+
       sendMessage({
         event: 'subscribe-pair-stats',
-        data: {
-          pair: token.pairAddress,
-          token: token.tokenAddress,
-          chain: token.chain,
-        },
+        data,
       });
 
-      subscriptionsRef.current.add(subscriptionKey);
+      subscriptionsRef.current.set(subscriptionKey, data);
+    },
+    [sendMessage]
+  );
+
+  const unsubscribeFromPair = useCallback(
+    (pairAddress: string) => {
+      const subscriptionKey = `pair-${pairAddress}`;
+      if (!subscriptionsRef.current.has(subscriptionKey)) {
+        return;
+      }
+
+      sendMessage({
+        event: 'unsubscribe-pair',
+        data: subscriptionsRef.current.get(subscriptionKey)!,
+      });
+
+      subscriptionsRef.current.delete(subscriptionKey);
+    },
+    [sendMessage]
+  );
+
+  const unsubscribeFromPairStats = useCallback(
+    (pairAddress: string) => {
+      const subscriptionKey = `pair-stats-${pairAddress}`;
+      if (!subscriptionsRef.current.has(subscriptionKey)) {
+        return;
+      }
+
+      sendMessage({
+        event: 'unsubscribe-pair-stats',
+        data: subscriptionsRef.current.get(subscriptionKey)!,
+      });
+
+      subscriptionsRef.current.delete(subscriptionKey);
     },
     [sendMessage]
   );
@@ -100,11 +153,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const handleScannerPairsUpdate = useCallback(
     (data: { results: { pairs: ScannerResult[] } }) => {
+      console.log(
+        'Received scanner-pairs update:',
+        data.results.pairs.length,
+        'pairs'
+      );
+
       const newTokens = data.results.pairs.map((result: ScannerResult) =>
         convertToTokenData(result)
       );
 
-      // Update tokens map
+      // Clear existing subscriptions
+      subscriptionsRef.current.clear();
+
+      // Update tokens map - this is a full dataset replacement
       tokensRef.current.clear();
       newTokens.forEach((token: TokenData) => {
         tokensRef.current.set(token.id, token);
@@ -116,85 +178,49 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         subscribeToPairStats(token);
       });
 
+      // Notify parent component of full dataset replacement
       onTokensUpdate?.(newTokens);
     },
     [onTokensUpdate, subscribeToPair, subscribeToPairStats]
   );
 
-  const handleTickUpdate = useCallback(
-    (data: { pair: { pair: string }; swaps: WsTokenSwap[] }) => {
-      const { pair, swaps } = data;
-      const tokenId = pair.pair;
+  const handlePairStatsUpdate = useCallback((data: PairStatsMsgData) => {
+    const { pair } = data;
+    const tokenId = pair.pairAddress;
 
-      // Get the latest non-outlier swap
-      const latestSwap = swaps
-        .filter((swap: WsTokenSwap) => !swap.isOutlier)
-        .pop();
+    if (tokensRef.current.has(tokenId)) {
+      const token = tokensRef.current.get(tokenId)!;
 
-      if (latestSwap && tokensRef.current.has(tokenId)) {
-        const token = tokensRef.current.get(tokenId)!;
+      const updatedToken: TokenData = {
+        ...token,
+        migrationPc: parseFloat(data.migrationProgress),
+        audit: {
+          ...token.audit,
+          mintable: pair.mintAuthorityRenounced,
+          freezable: pair.freezeAuthorityRenounced,
+          honeypot: !pair.token1IsHoneypot,
+          contractVerified: pair.isVerified,
+        },
+        socialLinks: {
+          discord: pair.linkDiscord || undefined,
+          telegram: pair.linkTelegram || undefined,
+          twitter: pair.linkTwitter || undefined,
+          website: pair.linkWebsite || undefined,
+        },
+        dexPaid: pair.dexPaid,
+      };
 
-        // Update price and recalculate market cap
-        const newPrice = parseFloat(latestSwap.priceToken1Usd);
-        const totalSupply = parseFloat(token.tokenAddress); // This should be from the original data
+      tokensRef.current.set(tokenId, updatedToken);
+      // onTokenUpdate?.(updatedToken);
 
-        const updatedToken: TokenData = {
-          ...token,
-          priceUsd: newPrice,
-          mcap: totalSupply * newPrice,
-          // Update volume and transactions based on swaps
-          volumeUsd:
-            token.volumeUsd + parseFloat(latestSwap.amountToken1) * newPrice,
-          transactions: {
-            buys:
-              token.transactions.buys +
-              (latestSwap.tokenInAddress === token.tokenAddress ? 1 : 0),
-            sells:
-              token.transactions.sells +
-              (latestSwap.tokenInAddress !== token.tokenAddress ? 1 : 0),
-          },
-        };
-
-        tokensRef.current.set(tokenId, updatedToken);
-        onTokenUpdate?.(updatedToken);
-      }
-    },
-    [onTokenUpdate]
-  );
-
-  const handlePairStatsUpdate = useCallback(
-    (data: PairStatsMsgData) => {
-      const { pair } = data;
-      const tokenId = pair.pairAddress;
-
-      if (tokensRef.current.has(tokenId)) {
-        const token = tokensRef.current.get(tokenId)!;
-
-        const updatedToken: TokenData = {
-          ...token,
-          migrationPc: parseFloat(data.migrationProgress),
-          audit: {
-            ...token.audit,
-            mintable: pair.mintAuthorityRenounced,
-            freezable: pair.freezeAuthorityRenounced,
-            honeypot: !pair.token1IsHoneypot,
-            contractVerified: pair.isVerified,
-          },
-          socialLinks: {
-            discord: pair.linkDiscord || undefined,
-            telegram: pair.linkTelegram || undefined,
-            twitter: pair.linkTwitter || undefined,
-            website: pair.linkWebsite || undefined,
-          },
-          dexPaid: pair.dexPaid,
-        };
-
-        tokensRef.current.set(tokenId, updatedToken);
-        onTokenUpdate?.(updatedToken);
-      }
-    },
-    [onTokenUpdate]
-  );
+      console.log(
+        'Updated token from pair-stats:',
+        token.tokenSymbol,
+        'migration:',
+        data.migrationProgress
+      );
+    }
+  }, []);
 
   const handleWpegPricesUpdate = useCallback((data: WpegPricesEventPayload) => {
     console.log('Received WPEG prices:', data.prices);
@@ -209,7 +235,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           handleScannerPairsUpdate(message.data);
           break;
         case 'tick':
-          handleTickUpdate(message.data);
+          onTokenUpdate?.(message.data);
           break;
         case 'pair-stats':
           handlePairStatsUpdate(message.data);
@@ -224,8 +250,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     [
       handlePairStatsUpdate,
       handleScannerPairsUpdate,
-      handleTickUpdate,
       handleWpegPricesUpdate,
+      onTokenUpdate,
     ]
   );
 
@@ -299,10 +325,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   return {
     isConnected,
     error,
-    connect,
-    disconnect,
+    subscriptionsRef,
     subscribeToScanner,
     unsubscribeFromScanner,
-    sendMessage,
+    subscribeToPair,
+    unsubscribeFromPair,
+    subscribeToPairStats,
+    unsubscribeFromPairStats,
   };
 }
