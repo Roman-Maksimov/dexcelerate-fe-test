@@ -399,8 +399,12 @@ export const Table: FC = () => {
       )}
 
       <div className="px-4 py-3 bg-gray-800 text-sm text-gray-300">
-        Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} | Tokens:{' '}
-        {tokens.length}
+        <div className="flex items-center justify-between">
+          <div>
+            Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} |{' '}
+            Tokens: {tokens.length}
+          </div>
+        </div>
       </div>
     </div>
   );

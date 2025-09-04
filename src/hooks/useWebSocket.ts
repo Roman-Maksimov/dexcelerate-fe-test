@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  GetScannerResultParams,
   IncomingWebSocketMessage,
   OutgoingWebSocketMessage,
   PairStatsMsgData,
@@ -25,56 +26,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const { onTokensUpdate, onTokenUpdate, onError } = options;
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    try {
-      const ws = new WebSocket('wss://api-rs.dexcelerate.com/ws');
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-        setError(null);
-        console.log('WebSocket connected');
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        console.log('WebSocket disconnected');
-        // Reconnect after 3 seconds
-        setTimeout(connect, 3000);
-      };
-
-      ws.onerror = event => {
-        setError('WebSocket connection error');
-        onError?.(event);
-        console.error('WebSocket error:', event);
-      };
-
-      ws.onmessage = event => {
-        try {
-          const message: IncomingWebSocketMessage = JSON.parse(event.data);
-          handleMessage(message);
-        } catch (err) {
-          console.error('Failed to parse WebSocket message:', err);
-        }
-      };
-    } catch (err) {
-      setError('Failed to create WebSocket connection');
-      console.error('WebSocket connection error:', err);
-    }
-  }, [onError]);
-
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setIsConnected(false);
-  }, []);
-
   const sendMessage = useCallback((message: OutgoingWebSocketMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
@@ -83,24 +34,70 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
   }, []);
 
-  const handleMessage = useCallback((message: IncomingWebSocketMessage) => {
-    switch (message.event) {
-      case 'scanner-pairs':
-        handleScannerPairsUpdate(message.data);
-        break;
-      case 'tick':
-        handleTickUpdate(message.data);
-        break;
-      case 'pair-stats':
-        handlePairStatsUpdate(message.data);
-        break;
-      default:
-        console.log('Unknown WebSocket message type:', message);
-    }
-  }, []);
+  const subscribeToPair = useCallback(
+    (token: TokenData) => {
+      const subscriptionKey = `pair-${token.pairAddress}`;
+      if (subscriptionsRef.current.has(subscriptionKey)) {
+        return;
+      }
+
+      sendMessage({
+        event: 'subscribe-pair',
+        data: {
+          pair: token.pairAddress,
+          token: token.tokenAddress,
+          chain: token.chain,
+        },
+      });
+
+      subscriptionsRef.current.add(subscriptionKey);
+    },
+    [sendMessage]
+  );
+
+  const subscribeToPairStats = useCallback(
+    (token: TokenData) => {
+      const subscriptionKey = `pair-stats-${token.pairAddress}`;
+      if (subscriptionsRef.current.has(subscriptionKey)) {
+        return;
+      }
+
+      sendMessage({
+        event: 'subscribe-pair-stats',
+        data: {
+          pair: token.pairAddress,
+          token: token.tokenAddress,
+          chain: token.chain,
+        },
+      });
+
+      subscriptionsRef.current.add(subscriptionKey);
+    },
+    [sendMessage]
+  );
+
+  const subscribeToScanner = useCallback(
+    (filters: GetScannerResultParams) => {
+      sendMessage({
+        event: 'scanner-filter',
+        data: filters,
+      });
+    },
+    [sendMessage]
+  );
+
+  const unsubscribeFromScanner = useCallback(
+    (filters: GetScannerResultParams) => {
+      sendMessage({
+        event: 'unsubscribe-scanner-filter',
+        data: filters,
+      });
+    },
+    [sendMessage]
+  );
 
   const handleScannerPairsUpdate = useCallback(
-    (data: any) => {
+    (data: { results: { pairs: ScannerResult[] } }) => {
       const newTokens = data.results.pairs.map((result: ScannerResult) =>
         convertToTokenData(result)
       );
@@ -119,11 +116,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
       onTokensUpdate?.(newTokens);
     },
-    [onTokensUpdate]
+    [onTokensUpdate, subscribeToPair, subscribeToPairStats]
   );
 
   const handleTickUpdate = useCallback(
-    (data: any) => {
+    (data: { pair: { pair: string }; swaps: WsTokenSwap[] }) => {
       const { pair, swaps } = data;
       const tokenId = pair.pair;
 
@@ -197,67 +194,78 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     [onTokenUpdate]
   );
 
-  const subscribeToPair = useCallback(
-    (token: TokenData) => {
-      const subscriptionKey = `pair-${token.pairAddress}`;
-      if (subscriptionsRef.current.has(subscriptionKey)) {
-        return;
+  const handleMessage = useCallback(
+    (message: IncomingWebSocketMessage) => {
+      switch (message.event) {
+        case 'scanner-pairs':
+          handleScannerPairsUpdate(message.data);
+          break;
+        case 'tick':
+          handleTickUpdate(message.data);
+          break;
+        case 'pair-stats':
+          handlePairStatsUpdate(message.data);
+          break;
+        default:
+          console.log('Unknown WebSocket message type:', message);
       }
-
-      sendMessage({
-        event: 'subscribe-pair',
-        data: {
-          pair: token.pairAddress,
-          token: token.tokenAddress,
-          chain: token.chain,
-        },
-      });
-
-      subscriptionsRef.current.add(subscriptionKey);
     },
-    [sendMessage]
+    [handlePairStatsUpdate, handleScannerPairsUpdate, handleTickUpdate]
   );
 
-  const subscribeToPairStats = useCallback(
-    (token: TokenData) => {
-      const subscriptionKey = `pair-stats-${token.pairAddress}`;
-      if (subscriptionsRef.current.has(subscriptionKey)) {
-        return;
-      }
+  const connect = useCallback(() => {
+    // Закрываем существующее соединение
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
-      sendMessage({
-        event: 'subscribe-pair-stats',
-        data: {
-          pair: token.pairAddress,
-          token: token.tokenAddress,
-          chain: token.chain,
-        },
-      });
+    try {
+      console.log('Attempting to connect to WebSocket...');
+      const ws = new WebSocket(
+        import.meta.env.VITE_WS_URL || 'wss://api-rs.dexcelerate.com/ws'
+      );
+      wsRef.current = ws;
 
-      subscriptionsRef.current.add(subscriptionKey);
-    },
-    [sendMessage]
-  );
+      ws.onopen = () => {
+        console.log('WebSocket connected successfully');
+        setIsConnected(true);
+        setError(null);
+      };
 
-  const subscribeToScanner = useCallback(
-    (filters: any) => {
-      sendMessage({
-        event: 'scanner-filter',
-        data: filters,
-      });
-    },
-    [sendMessage]
-  );
+      ws.onclose = event => {
+        console.log('WebSocket disconnected', event.code, event.reason);
+        setIsConnected(false);
+      };
 
-  const unsubscribeFromScanner = useCallback(
-    (filters: any) => {
-      sendMessage({
-        event: 'unsubscribe-scanner-filter',
-        data: filters,
-      });
-    },
-    [sendMessage]
-  );
+      ws.onerror = event => {
+        console.error('WebSocket error:', event);
+        setError('WebSocket connection error');
+        onError?.(event);
+      };
+
+      ws.onmessage = event => {
+        try {
+          const message: IncomingWebSocketMessage = JSON.parse(event.data);
+          handleMessage(message);
+        } catch (err) {
+          console.error('Failed to parse WebSocket message:', err);
+        }
+      };
+    } catch (err) {
+      console.error('Failed to create WebSocket connection:', err);
+      setError('Failed to create WebSocket connection');
+    }
+  }, [handleMessage, onError]);
+
+  const disconnect = useCallback(() => {
+    console.log('Disconnecting WebSocket...');
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Manual disconnect');
+      wsRef.current = null;
+    }
+    setIsConnected(false);
+  }, []);
 
   useEffect(() => {
     connect();
