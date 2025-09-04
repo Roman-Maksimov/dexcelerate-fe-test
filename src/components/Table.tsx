@@ -73,7 +73,7 @@ const COLUMNS: TokenTableColumn[] = [
     key: 'audit',
     label: 'Audit',
     sortable: false,
-    width: '200px',
+    width: '250px',
     align: 'center',
   },
 ];
@@ -191,7 +191,11 @@ export const Table: FC = () => {
         );
 
       case 'exchange':
-        return <span className="text-white text-sm">{token.exchange}</span>;
+        return (
+          <span className="text-white text-xs" title={token.exchange}>
+            {token.exchange}
+          </span>
+        );
 
       case 'priceUsd':
         return (
