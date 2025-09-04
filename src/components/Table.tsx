@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useGetScannerQuery } from '../api/hooks';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -59,15 +59,20 @@ export const Table: FC = () => {
     direction: 'desc',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Create API parameters with current sort
+  // Create API parameters with current sort and pagination
   const apiParams = useMemo(() => {
     const sortParams = mapColumnToApiParams(sort.column, sort.direction);
     return {
       ...TRENDING_TOKENS_FILTERS,
       ...sortParams,
+      page,
     };
-  }, [sort]);
+  }, [sort, page]);
 
   // Fetch data with current sort parameters
   const { data: initialData, isLoading: isInitialLoading } =
@@ -89,14 +94,35 @@ export const Table: FC = () => {
       },
     });
 
-  // Convert initial data
+  // Convert initial data and handle pagination
   useEffect(() => {
     if (initialData?.data?.pairs) {
+      // Show all items from each page (up to 100)
       const convertedTokens = initialData.data.pairs.map(convertToTokenData);
-      setTokens(convertedTokens);
-      setIsLoading(false);
+
+      if (page === 1) {
+        // First page - replace all tokens
+        setTokens(convertedTokens);
+        setIsLoading(false);
+      } else {
+        // Subsequent pages - append to existing tokens
+        setTokens(prev => [...prev, ...convertedTokens]);
+        setIsLoadingMore(false);
+      }
+
+      // Update pagination info
+      const currentPageItems = initialData.data.pairs?.length || 0;
+      const itemsPerPage = 100; // API always returns 100 items per page
+
+      // If we got less than 100 items, we've reached the end
+      if (currentPageItems < itemsPerPage) {
+        setHasMore(false);
+      } else {
+        // We can load more pages
+        setHasMore(true);
+      }
     }
-  }, [initialData]);
+  }, [initialData, page]);
 
   // Subscribe to WebSocket updates with current sort parameters
   useEffect(() => {
@@ -110,6 +136,45 @@ export const Table: FC = () => {
 
   // No client-side sorting needed - server handles it
   const sortedTokens = tokens;
+
+  // Load next page
+  const loadNextPage = useCallback(() => {
+    if (hasMore && !isLoadingMore && !isLoading) {
+      setIsLoadingMore(true);
+      setPage(prev => prev + 1);
+    }
+  }, [hasMore, isLoadingMore, isLoading]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) {
+          loadNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [loadNextPage]);
+
+  // Reset pagination when sort changes
+  useEffect(() => {
+    setPage(1);
+    setTokens([]);
+    setHasMore(true);
+    setIsLoading(true);
+  }, [sort]);
 
   const handleSort = (column: string) => {
     setSort(prev => ({
@@ -155,7 +220,7 @@ export const Table: FC = () => {
             </tr>
           </thead>
           <tbody className="bg-gray-900 divide-y divide-gray-700">
-            {Array.from({ length: 10 }).map((_, index) => (
+            {Array.from({ length: 100 }).map((_, index) => (
               <tr key={index} className="hover:bg-gray-800 transition-colors">
                 {COLUMNS.map(column => (
                   <td
@@ -264,8 +329,24 @@ export const Table: FC = () => {
         </table>
       </div>
 
-      {tokens.length === 0 && (
+      {tokens.length === 0 && !isLoading && (
         <div className="text-center py-8 text-gray-400">No data to display</div>
+      )}
+
+      {/* Infinite scroll trigger and loading indicator */}
+      {hasMore && (
+        <div ref={loadMoreRef} className="px-4 py-4 bg-gray-800">
+          {isLoadingMore ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span className="text-gray-300">Loading more...</span>
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 text-sm">
+              Scroll down to load more
+            </div>
+          )}
+        </div>
       )}
 
       <div className="px-4 py-3 bg-gray-800 text-sm text-gray-300">
@@ -273,6 +354,7 @@ export const Table: FC = () => {
           <div>
             Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} |{' '}
             Tokens: {tokens.length}
+            {page > 1 && ` | Page ${page}`}
           </div>
         </div>
       </div>
