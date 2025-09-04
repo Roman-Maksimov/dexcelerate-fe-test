@@ -499,3 +499,72 @@ export const NEW_TOKENS_FILTERS: GetScannerResultParams = {
   maxAge: 24 * 60 * 60, // max 24 hours old
   isNotHP: true,
 };
+
+// ===== TOKEN DATA TYPES =====
+
+/**
+ * Token data structure for the table display
+ */
+export interface TokenData {
+  id: string;
+  tokenName: string;
+  tokenSymbol: string;
+  tokenAddress: string;
+  pairAddress: string;
+  chain: SupportedChainName;
+  exchange: string; // router or virtualRouter
+  priceUsd: number;
+  volumeUsd: number;
+  mcap: number;
+  priceChangePcs: {
+    '5m': number;
+    '1h': number;
+    '6h': number;
+    '24h': number;
+  };
+  transactions: {
+    buys: number;
+    sells: number;
+  };
+  audit: {
+    mintable: boolean;
+    freezable: boolean;
+    honeypot: boolean;
+    contractVerified: boolean;
+  };
+  tokenCreatedTimestamp: Date;
+  liquidity: {
+    current: number;
+    changePc: number;
+  };
+  // Additional fields for real-time updates
+  migrationPc?: number;
+  socialLinks?: {
+    discord?: string;
+    telegram?: string;
+    twitter?: string;
+    website?: string;
+  };
+  dexPaid?: boolean;
+}
+
+export interface TokenTableColumn {
+  key: keyof TokenData | string;
+  label: string;
+  sortable?: boolean;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface TokenTableFilters {
+  chain?: SupportedChainName | null;
+  minVolume?: number | null;
+  maxAge?: number | null;
+  minMcap?: number | null;
+  excludeHoneypots?: boolean;
+}
+
+export interface TokenTableSort {
+  column: keyof TokenData | string;
+  direction: 'asc' | 'desc';
+}
