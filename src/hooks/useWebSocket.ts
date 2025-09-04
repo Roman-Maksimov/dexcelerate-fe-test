@@ -7,20 +7,16 @@ import {
   PairStatsMsgData,
   ScannerResult,
   SupportedChainName,
+  TickEventPayload,
   TokenData,
   WpegPricesEventPayload,
-  WsTokenSwap,
 } from '../scheme/type';
 import { convertToTokenData } from '../utils/tokenUtils';
 
-interface OnTokenUpdateData {
-  pair: { pair: string };
-  swaps: WsTokenSwap[];
-}
-
 interface UseWebSocketOptions {
   onTokensUpdate?: (tokens: TokenData[]) => void;
-  onTokenUpdate?: (data: OnTokenUpdateData) => void;
+  onTick?: (data: TickEventPayload) => void;
+  onStats?: (data: PairStatsMsgData) => void;
   onError?: (error: Event) => void;
 }
 
@@ -41,7 +37,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     >
   >(new Map());
 
-  const { onTokensUpdate, onTokenUpdate, onError } = options;
+  const { onTokensUpdate, onTick, onStats, onError } = options;
 
   const sendMessage = useCallback((message: OutgoingWebSocketMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -184,44 +180,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     [onTokensUpdate, subscribeToPair, subscribeToPairStats]
   );
 
-  const handlePairStatsUpdate = useCallback((data: PairStatsMsgData) => {
-    const { pair } = data;
-    const tokenId = pair.pairAddress;
-
-    if (tokensRef.current.has(tokenId)) {
-      const token = tokensRef.current.get(tokenId)!;
-
-      const updatedToken: TokenData = {
-        ...token,
-        migrationPc: parseFloat(data.migrationProgress),
-        audit: {
-          ...token.audit,
-          mintable: pair.mintAuthorityRenounced,
-          freezable: pair.freezeAuthorityRenounced,
-          honeypot: !pair.token1IsHoneypot,
-          contractVerified: pair.isVerified,
-        },
-        socialLinks: {
-          discord: pair.linkDiscord || undefined,
-          telegram: pair.linkTelegram || undefined,
-          twitter: pair.linkTwitter || undefined,
-          website: pair.linkWebsite || undefined,
-        },
-        dexPaid: pair.dexPaid,
-      };
-
-      tokensRef.current.set(tokenId, updatedToken);
-      // onTokenUpdate?.(updatedToken);
-
-      console.log(
-        'Updated token from pair-stats:',
-        token.tokenSymbol,
-        'migration:',
-        data.migrationProgress
-      );
-    }
-  }, []);
-
   const handleWpegPricesUpdate = useCallback((data: WpegPricesEventPayload) => {
     console.log('Received WPEG prices:', data.prices);
     // Здесь можно добавить логику для обновления цен WPEG токенов
@@ -235,10 +193,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           handleScannerPairsUpdate(message.data);
           break;
         case 'tick':
-          onTokenUpdate?.(message.data);
+          onTick?.(message.data);
           break;
         case 'pair-stats':
-          handlePairStatsUpdate(message.data);
+          onStats?.(message.data);
           break;
         case 'wpeg-prices':
           handleWpegPricesUpdate(message.data);
@@ -247,12 +205,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           console.log('Unknown WebSocket message type:', message);
       }
     },
-    [
-      handlePairStatsUpdate,
-      handleScannerPairsUpdate,
-      handleWpegPricesUpdate,
-      onTokenUpdate,
-    ]
+    [handleScannerPairsUpdate, handleWpegPricesUpdate, onStats, onTick]
   );
 
   const connect = useCallback(() => {

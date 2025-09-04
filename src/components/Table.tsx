@@ -98,6 +98,7 @@ export const Table: FC = () => {
     subscribeToPair,
     unsubscribeFromPair,
     subscribeToPairStats,
+    unsubscribeFromPairStats,
   } = useWebSocket({
     onTokensUpdate: newTokens => {
       // This is a full dataset replacement from scanner-pairs event
@@ -150,7 +151,7 @@ export const Table: FC = () => {
       //   subscribeToPairStats(token);
       // });
     },
-    onTokenUpdate: updateData => {
+    onTick: updateData => {
       // Update specific token in infinite query cache
       const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
 
@@ -217,10 +218,46 @@ export const Table: FC = () => {
           };
         }
       );
+    },
 
-      // // Subscribe to real-time updates for this token
-      // subscribeToPair(updatedToken);
-      // subscribeToPairStats(updatedToken);
+    onStats: updateData => {
+      // Update specific token in infinite query cache
+      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+
+      queryClient.setQueryData(
+        queryKey,
+        (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
+          if (!oldData?.pages) return oldData;
+
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => {
+              return {
+                ...page,
+                data: {
+                  ...page.data,
+                  pairs: page.data.pairs.map(item => {
+                    const { pair, migrationProgress } = updateData;
+
+                    if (item.pairAddress !== pair.pairAddress) {
+                      return item;
+                    }
+
+                    return {
+                      ...item,
+                      migrationProgress: Number(migrationProgress),
+                      isMintAuthDisabled: pair.mintAuthorityRenounced,
+                      isFreezeAuthDisabled: pair.freezeAuthorityRenounced,
+                      honeyPot: !pair.token1IsHoneypot,
+                      contractVerified: item.contractVerified, // preserve existing
+                    };
+                  }),
+                },
+              };
+            }),
+          };
+        }
+      );
     },
   });
 
@@ -230,20 +267,23 @@ export const Table: FC = () => {
       .filter(pairAddress => !data?.pairs[pairAddress])
       .forEach(pairAddress => {
         unsubscribeFromPair(pairAddress);
+        unsubscribeFromPairStats(pairAddress);
       });
 
     data?.allPages
       .filter(token => !subscriptionsRef.current.has(token.pairAddress))
       .forEach(token => {
         subscribeToPair(token);
-        // subscribeToPairStats(token);
+        subscribeToPairStats(token);
       });
   }, [
     data?.allPages,
     data?.pairs,
     subscribeToPair,
+    subscribeToPairStats,
     subscriptionsRef,
     unsubscribeFromPair,
+    unsubscribeFromPairStats,
   ]);
 
   // Subscribe to WebSocket updates with current sort parameters
