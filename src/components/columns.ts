@@ -2,7 +2,7 @@ import { TokenTableColumn } from '../scheme/type';
 
 export const COLUMNS: TokenTableColumn[] = [
   { key: 'rank', label: '#', sortable: false, width: '40px', align: 'left' },
-  { key: 'token', label: 'Token', sortable: true, width: '200px' },
+  { key: 'token', label: 'Token', sortable: true, width: '250px' },
   { key: 'exchange', label: 'Exchange', sortable: true, width: '320px' },
   {
     key: 'priceUsd',

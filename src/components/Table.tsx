@@ -9,6 +9,7 @@ import {
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
 } from '../scheme/type';
+import { Skeleton } from '../ui/skeleton';
 import { convertToTokenData } from '../utils/tokenUtils';
 import { COLUMNS } from './columns';
 import { TableCell } from './TableCell';
@@ -119,12 +120,72 @@ export const Table: FC = () => {
     // Data will be refetched automatically due to apiParams dependency
   };
 
-  if (isLoading || isInitialLoading) {
-    return (
-      <div className="flex items-center justify-center h-64 bg-gray-900">
-        <div className="text-lg text-white">Loading...</div>
+  // Render skeleton table during loading
+  const renderSkeletonTable = () => (
+    <div className="bg-gray-900 rounded-lg shadow overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-800">
+            <tr>
+              {COLUMNS.map(column => (
+                <th
+                  key={column.key}
+                  className={`p-2 text-xs font-medium text-gray-300 uppercase tracking-wider ${
+                    column.align === 'right'
+                      ? 'text-right'
+                      : column.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
+                  }`}
+                  style={{ width: column.width }}
+                >
+                  <div
+                    className={`flex items-center ${
+                      column.align === 'right'
+                        ? 'justify-end'
+                        : column.align === 'center'
+                          ? 'justify-center'
+                          : ''
+                    }`}
+                  >
+                    {column.label}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-gray-900 divide-y divide-gray-700">
+            {Array.from({ length: 10 }).map((_, index) => (
+              <tr key={index} className="hover:bg-gray-800 transition-colors">
+                {COLUMNS.map(column => (
+                  <td
+                    key={column.key}
+                    className={`${
+                      column.align === 'right'
+                        ? 'text-right'
+                        : column.align === 'center'
+                          ? 'text-center'
+                          : 'text-left'
+                    }`}
+                  >
+                    <div
+                      className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
+                      style={{ width: column.width }}
+                    >
+                      <Skeleton className="h-[27px] w-full bg-gray-700" />
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    );
+    </div>
+  );
+
+  if (isLoading || isInitialLoading) {
+    return renderSkeletonTable();
   }
 
   return (
