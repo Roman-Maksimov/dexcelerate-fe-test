@@ -17,6 +17,7 @@ import {
 } from '../utils/tokenUtils';
 
 const COLUMNS: TokenTableColumn[] = [
+  { key: 'rank', label: '#', sortable: false, width: '60px', align: 'left' },
   { key: 'token', label: 'Token', sortable: true, width: '200px' },
   { key: 'exchange', label: 'Exchange', sortable: true, width: '120px' },
   {
@@ -41,17 +42,17 @@ const COLUMNS: TokenTableColumn[] = [
     align: 'right',
   },
   {
+    key: 'tokenCreatedTimestamp',
+    label: 'Time',
+    sortable: true,
+    width: '80px',
+    align: 'center',
+  },
+  {
     key: 'priceChangePcs',
     label: 'Price Change',
     sortable: false,
     width: '200px',
-    align: 'center',
-  },
-  {
-    key: 'tokenCreatedTimestamp',
-    label: 'Age',
-    sortable: true,
-    width: '80px',
     align: 'center',
   },
   {
@@ -72,7 +73,7 @@ const COLUMNS: TokenTableColumn[] = [
     key: 'audit',
     label: 'Audit',
     sortable: false,
-    width: '100px',
+    width: '200px',
     align: 'center',
   },
 ];
@@ -163,19 +164,26 @@ export const Table: FC = () => {
     }));
   };
 
-  const renderTokenCell = (token: TokenData, column: TokenTableColumn) => {
+  const renderTokenCell = (
+    token: TokenData,
+    column: TokenTableColumn,
+    index: number
+  ) => {
     switch (column.key) {
+      case 'rank':
+        return <span className="text-gray-400 text-sm">{index + 1}</span>;
+
       case 'token':
         return (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+              <span className="text-sm font-bold text-white">
                 {token.tokenSymbol.charAt(0)}
               </span>
             </div>
             <div>
-              <div className="font-medium">{token.tokenName}</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-medium text-white">{token.tokenName}</div>
+              <div className="text-sm text-gray-400">
                 {token.tokenSymbol} • {token.chain}
               </div>
             </div>
@@ -183,36 +191,46 @@ export const Table: FC = () => {
         );
 
       case 'exchange':
-        return <span className="text-sm">{token.exchange}</span>;
+        return <span className="text-white text-sm">{token.exchange}</span>;
 
       case 'priceUsd':
         return (
-          <span className="font-mono">${formatPrice(token.priceUsd)}</span>
+          <span className="font-mono text-white">
+            ${formatPrice(token.priceUsd)}
+          </span>
         );
 
       case 'mcap':
-        return <span className="font-mono">${formatNumber(token.mcap)}</span>;
+        return (
+          <span className="font-mono text-white">
+            ${formatNumber(token.mcap)}
+          </span>
+        );
 
       case 'volumeUsd':
         return (
-          <span className="font-mono">${formatNumber(token.volumeUsd)}</span>
+          <span className="font-mono text-white">
+            ${formatNumber(token.volumeUsd)}
+          </span>
         );
 
       case 'priceChangePcs':
         return (
-          <div className="flex space-x-2 text-xs">
+          <div className="grid grid-cols-2 gap-1 text-xs">
             {Object.entries(token.priceChangePcs).map(([timeframe, value]) => {
               const { text, isPositive } = formatPercentage(value);
               return (
                 <span
                   key={timeframe}
-                  className={`px-1 py-0.5 rounded ${
+                  className={`px-1 py-0.5 rounded text-center ${
                     isPositive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
+                      ? 'text-green-400'
+                      : value === 0
+                        ? 'text-gray-400'
+                        : 'text-red-400'
                   }`}
                 >
-                  {timeframe}: {text}
+                  {text}
                 </span>
               );
             })}
@@ -221,33 +239,28 @@ export const Table: FC = () => {
 
       case 'tokenCreatedTimestamp':
         return (
-          <span className="text-sm">
+          <span className="text-white text-sm">
             {formatAge(token.tokenCreatedTimestamp)}
           </span>
         );
 
       case 'transactions':
         return (
-          <div className="text-sm">
-            <div className="text-green-600">{token.transactions.buys}</div>
-            <div className="text-red-600">{token.transactions.sells}</div>
+          <div className="text-sm text-center">
+            <div className="text-green-400">{token.transactions.buys}</div>
+            <div className="text-red-400">{token.transactions.sells}</div>
           </div>
         );
 
       case 'liquidity': {
-        const { text: liquidityText, isPositive: liquidityPositive } =
-          formatPercentage(token.liquidity.changePc);
         return (
-          <div>
-            <div className="font-mono">
+          <div className="text-right">
+            <div className="font-mono text-white">
               ${formatNumber(token.liquidity.current)}
             </div>
-            <div
-              className={`text-xs ${
-                liquidityPositive ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {liquidityText}
+            <div className="text-xs text-gray-400">
+              {formatNumber(token.transactions.buys)}/
+              {formatNumber(token.transactions.sells)}
             </div>
           </div>
         );
@@ -255,52 +268,78 @@ export const Table: FC = () => {
 
       case 'audit':
         return (
-          <div className="flex space-x-1">
-            {token.audit.contractVerified && (
-              <span
-                className="w-2 h-2 bg-green-500 rounded-full"
-                title="Verified"
-              />
-            )}
-            {!token.audit.honeypot && (
-              <span
-                className="w-2 h-2 bg-blue-500 rounded-full"
-                title="Not Honeypot"
-              />
-            )}
-            {token.audit.mintable && (
-              <span
-                className="w-2 h-2 bg-yellow-500 rounded-full"
-                title="Mintable"
-              />
-            )}
+          <div className="flex flex-col items-center space-y-1">
+            <div className="flex space-x-1">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    token.audit.mintable ? 'bg-red-500' : 'bg-green-500'
+                  }`}
+                />
+                <span className="text-xs text-gray-400">Mintable</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    token.audit.freezable ? 'bg-red-500' : 'bg-green-500'
+                  }`}
+                />
+                <span className="text-xs text-gray-400">Freezeable</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    token.audit.contractVerified ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
+                <span className="text-xs text-gray-400">Burned</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    token.audit.honeypot ? 'bg-red-500' : 'bg-green-500'
+                  }`}
+                />
+                <span className="text-xs text-gray-400">Honeypot</span>
+              </div>
+            </div>
           </div>
         );
 
       default:
-        return <span>{String(getNestedValue(token, column.key))}</span>;
+        return (
+          <span className="text-white">
+            {String(getNestedValue(token, column.key))}
+          </span>
+        );
     }
   };
 
   if (isLoading || isInitialLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading...</div>
+      <div className="flex items-center justify-center h-64 bg-gray-900">
+        <div className="text-lg text-white">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-gray-900 rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-800">
             <tr>
               {COLUMNS.map(column => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
+                  className={`px-4 py-3 text-xs font-medium text-gray-300 uppercase tracking-wider ${
+                    column.sortable ? 'cursor-pointer hover:bg-gray-700' : ''
+                  } ${
+                    column.align === 'right'
+                      ? 'text-right'
+                      : column.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
                   }`}
                   style={{ width: column.width }}
                   onClick={() => column.sortable && handleSort(column.key)}
@@ -316,7 +355,7 @@ export const Table: FC = () => {
                   >
                     {column.label}
                     {column.sortable && (
-                      <span className="ml-1">
+                      <span className="ml-1 text-gray-400">
                         {sort.column === column.key
                           ? sort.direction === 'asc'
                             ? '↑'
@@ -329,9 +368,12 @@ export const Table: FC = () => {
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedTokens.map(token => (
-              <tr key={token.id} className="hover:bg-gray-50">
+          <tbody className="bg-gray-900 divide-y divide-gray-700">
+            {sortedTokens.map((token, index) => (
+              <tr
+                key={token.id}
+                className="hover:bg-gray-800 transition-colors"
+              >
                 {COLUMNS.map(column => (
                   <td
                     key={column.key}
@@ -343,7 +385,7 @@ export const Table: FC = () => {
                           : 'text-left'
                     }`}
                   >
-                    {renderTokenCell(token, column)}
+                    {renderTokenCell(token, column, index)}
                   </td>
                 ))}
               </tr>
@@ -353,10 +395,10 @@ export const Table: FC = () => {
       </div>
 
       {tokens.length === 0 && (
-        <div className="text-center py-8 text-gray-500">No data to display</div>
+        <div className="text-center py-8 text-gray-400">No data to display</div>
       )}
 
-      <div className="px-4 py-3 bg-gray-50 text-sm text-gray-500">
+      <div className="px-4 py-3 bg-gray-800 text-sm text-gray-300">
         Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} |{' '}
         Tokens: {tokens.length}
       </div>
