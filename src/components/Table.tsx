@@ -14,11 +14,9 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import {
   GetScannerResultParams,
   OrderBy,
-  TokenData,
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
 } from '../scheme/type';
-import { convertToTokenData } from '../utils/tokenUtils';
 import { COLUMNS } from './columns';
 import { TableRow } from './TableRow';
 import { TableRowSkeleton } from './TableRowSkeleton';
@@ -82,21 +80,6 @@ export const Table: FC = () => {
   // Use infinite query for pagination
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useGetScannerInfiniteQuery(baseApiParams);
-
-  // Flatten all pages into a single array of tokens
-  const allTokens = useMemo(() => {
-    if (!data?.pages) return [];
-
-    const tokens: TokenData[] = [];
-    data.pages.forEach(page => {
-      if (page.data.pairs) {
-        const convertedTokens = page.data.pairs.map(convertToTokenData);
-        tokens.push(...convertedTokens);
-      }
-    });
-
-    return tokens;
-  }, [data]);
 
   // WebSocket connection
   const { isConnected, subscribeToScanner, unsubscribeFromScanner } =
@@ -185,9 +168,6 @@ export const Table: FC = () => {
       };
     }
   }, [isConnected, subscribeToScanner, unsubscribeFromScanner, baseApiParams]);
-
-  // No client-side sorting needed - server handles it
-  const sortedTokens = allTokens;
 
   // Load next page using infinite query
   const loadNextPage = useCallback(() => {
@@ -309,13 +289,13 @@ export const Table: FC = () => {
             </tr>
           </thead>
           <tbody className="bg-gray-900 divide-y divide-gray-700">
-            {sortedTokens.map((token, index) => {
+            {data?.allPages.map((token, index, arr) => {
               // Add early loading trigger when we're 80% through the data
               const shouldShowEarlyTrigger =
                 hasNextPage &&
                 !isLoading &&
-                index === Math.floor(sortedTokens.length * 0.8) &&
-                sortedTokens.length > 50; // Only show if we have enough data
+                index === Math.floor(arr.length * 0.8) &&
+                arr.length > 50; // Only show if we have enough data
 
               return (
                 <Suspense
@@ -340,7 +320,7 @@ export const Table: FC = () => {
         </table>
       </div>
 
-      {allTokens.length === 0 && !isLoading && (
+      {!data?.allPages.length === 0 && !isLoading && (
         <div className="text-center py-8 text-gray-400">No data to display</div>
       )}
 
@@ -359,7 +339,7 @@ export const Table: FC = () => {
         <div className="flex items-center justify-between">
           <div>
             Connection: {isConnected ? '🟢 Connected' : '🔴 Disconnected'} |{' '}
-            Tokens: {allTokens.length}
+            Tokens: {data?.allPages.length ?? 0}
             {data?.pages &&
               data.pages.length > 1 &&
               ` | Pages: ${data.pages.length}`}
