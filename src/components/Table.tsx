@@ -12,14 +12,14 @@ import {
   convertToTokenData,
   formatAge,
   formatNumber,
-  formatPercentage,
   formatPrice,
 } from '../utils/tokenUtils';
+import { TableColoredNumber } from './TableColoredNumber';
 
 const COLUMNS: TokenTableColumn[] = [
-  { key: 'rank', label: '#', sortable: false, width: '60px', align: 'left' },
-  { key: 'token', label: 'Token', sortable: true, width: '200px' },
-  { key: 'exchange', label: 'Exchange', sortable: true, width: '250px' },
+  { key: 'rank', label: '#', sortable: false, width: '40px', align: 'left' },
+  { key: 'token', label: 'Token', sortable: true, width: '160px' },
+  { key: 'exchange', label: 'Exchange', sortable: true, width: '320px' },
   {
     key: 'priceUsd',
     label: 'Price',
@@ -31,14 +31,14 @@ const COLUMNS: TokenTableColumn[] = [
     key: 'mcap',
     label: 'Market Cap',
     sortable: true,
-    width: '140px',
+    width: '120px',
     align: 'right',
   },
   {
     key: 'volumeUsd',
     label: 'Volume 24h',
     sortable: true,
-    width: '140px',
+    width: '120px',
     align: 'right',
   },
   {
@@ -49,10 +49,31 @@ const COLUMNS: TokenTableColumn[] = [
     align: 'center',
   },
   {
-    key: 'priceChangePcs',
-    label: 'Price Change',
-    sortable: false,
-    width: '200px',
+    key: 'priceChange5m',
+    label: '5m',
+    sortable: true,
+    width: '100px',
+    align: 'center',
+  },
+  {
+    key: 'priceChange1h',
+    label: '1h',
+    sortable: true,
+    width: '100px',
+    align: 'center',
+  },
+  {
+    key: 'priceChange6h',
+    label: '6h',
+    sortable: true,
+    width: '100px',
+    align: 'center',
+  },
+  {
+    key: 'priceChange24h',
+    label: '24h',
+    sortable: true,
+    width: '100px',
     align: 'center',
   },
   {
@@ -142,6 +163,20 @@ export const Table: FC = () => {
       return obj.transactions.sells;
     }
 
+    // Handle special cases for price changes
+    if (path === 'priceChange5m') {
+      return obj.priceChangePcs['5m'];
+    }
+    if (path === 'priceChange1h') {
+      return obj.priceChangePcs['1h'];
+    }
+    if (path === 'priceChange6h') {
+      return obj.priceChangePcs['6h'];
+    }
+    if (path === 'priceChange24h') {
+      return obj.priceChangePcs['24h'];
+    }
+
     return path
       .split('.')
       .reduce(
@@ -192,13 +227,13 @@ export const Table: FC = () => {
         return (
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-              <span className="text-sm font-bold text-white">
+              <span className="font-bold text-white">
                 {token.tokenSymbol.charAt(0)}
               </span>
             </div>
             <div>
               <div className="font-medium text-white">{token.tokenName}</div>
-              <div className="text-sm text-gray-400">
+              <div className="text-gray-400">
                 {token.tokenSymbol} • {token.chain}
               </div>
             </div>
@@ -233,40 +268,44 @@ export const Table: FC = () => {
           </span>
         );
 
-      case 'priceChangePcs':
+      case 'priceChange5m':
         return (
-          <div className="grid grid-cols-2 gap-1 text-xs">
-            {Object.entries(token.priceChangePcs).map(([timeframe, value]) => {
-              const { text, isPositive } = formatPercentage(value);
-              return (
-                <div
-                  key={timeframe}
-                  className={`px-1 py-0.5 rounded text-center ${
-                    isPositive
-                      ? 'text-green-400'
-                      : value === 0
-                        ? 'text-gray-400'
-                        : 'text-red-400'
-                  }`}
-                  title={`${timeframe} change`}
-                >
-                  {text}
-                </div>
-              );
-            })}
+          <div className="text-center">
+            <TableColoredNumber value={token.priceChangePcs['5m']} />
+          </div>
+        );
+
+      case 'priceChange1h':
+        return (
+          <div className="text-center">
+            <TableColoredNumber value={token.priceChangePcs['1h']} />
+          </div>
+        );
+
+      case 'priceChange6h':
+        return (
+          <div className="text-center">
+            <TableColoredNumber value={token.priceChangePcs['6h']} />
+          </div>
+        );
+
+      case 'priceChange24h':
+        return (
+          <div className="text-center">
+            <TableColoredNumber value={token.priceChangePcs['24h']} />
           </div>
         );
 
       case 'tokenCreatedTimestamp':
         return (
-          <span className="text-white text-sm">
+          <span className="text-white">
             {formatAge(token.tokenCreatedTimestamp)}
           </span>
         );
 
       case 'buys':
         return (
-          <div className="text-sm text-center">
+          <div className="text-center">
             <div className="text-green-400 font-mono">
               {formatNumber(token.transactions.buys)}
             </div>
@@ -275,7 +314,7 @@ export const Table: FC = () => {
 
       case 'sells':
         return (
-          <div className="text-sm text-center">
+          <div className="text-center">
             <div className="text-red-400 font-mono">
               {formatNumber(token.transactions.sells)}
             </div>
@@ -299,7 +338,7 @@ export const Table: FC = () => {
       case 'audit':
         return (
           <div className="flex flex-col items-center space-y-1">
-            <div className="flex space-x-1">
+            <div className="flex space-x-2">
               <div className="flex flex-col items-center">
                 <div
                   className={`w-3 h-3 rounded-full ${
@@ -362,7 +401,7 @@ export const Table: FC = () => {
               {COLUMNS.map(column => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-xs font-medium text-gray-300 uppercase tracking-wider ${
+                  className={`p-2 text-xs font-medium text-gray-300 uppercase tracking-wider ${
                     column.sortable ? 'cursor-pointer hover:bg-gray-700' : ''
                   } ${
                     column.align === 'right'
@@ -407,7 +446,7 @@ export const Table: FC = () => {
                 {COLUMNS.map(column => (
                   <td
                     key={column.key}
-                    className={`text-sm ${
+                    className={`${
                       column.align === 'right'
                         ? 'text-right'
                         : column.align === 'center'
@@ -416,7 +455,7 @@ export const Table: FC = () => {
                     }`}
                   >
                     <div
-                      className="p-4 text-ellipsis overflow-hidden whitespace-nowrap"
+                      className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
                       style={{ width: column.width }}
                     >
                       {renderTokenCell(token, column, index)}
