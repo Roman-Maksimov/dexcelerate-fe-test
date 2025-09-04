@@ -68,7 +68,6 @@ export const Table: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const earlyLoadRef = useRef<HTMLDivElement>(null);
 
@@ -115,7 +114,6 @@ export const Table: FC = () => {
       } else {
         // Subsequent pages - append to existing tokens
         setTokens(prev => [...prev, ...convertedTokens]);
-        setIsLoadingMore(false);
       }
 
       // Update pagination info
@@ -147,11 +145,10 @@ export const Table: FC = () => {
 
   // Load next page
   const loadNextPage = useCallback(() => {
-    if (hasMore && !isLoadingMore && !isLoading) {
-      setIsLoadingMore(true);
+    if (hasMore && !isLoading && !isInitialLoading) {
       setPage(prev => prev + 1);
     }
-  }, [hasMore, isLoadingMore, isLoading]);
+  }, [hasMore, isLoading, isInitialLoading]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -222,74 +219,6 @@ export const Table: FC = () => {
     // Data will be refetched automatically due to apiParams dependency
   };
 
-  // Render skeleton table during loading
-  const renderSkeletonTable = () => (
-    <div className="bg-gray-900 rounded-lg shadow overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-800">
-            <tr>
-              {COLUMNS.map(column => (
-                <th
-                  key={column.key}
-                  className={`p-2 text-xs font-medium text-gray-300 uppercase tracking-wider ${
-                    column.align === 'right'
-                      ? 'text-right'
-                      : column.align === 'center'
-                        ? 'text-center'
-                        : 'text-left'
-                  }`}
-                  style={{ width: column.width }}
-                >
-                  <div
-                    className={`flex items-center ${
-                      column.align === 'right'
-                        ? 'justify-end'
-                        : column.align === 'center'
-                          ? 'justify-center'
-                          : ''
-                    }`}
-                  >
-                    {column.label}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-gray-900 divide-y divide-gray-700">
-            {Array.from({ length: 100 }).map((_, index) => (
-              <tr key={index} className="hover:bg-gray-800 transition-colors">
-                {COLUMNS.map(column => (
-                  <td
-                    key={column.key}
-                    className={`${
-                      column.align === 'right'
-                        ? 'text-right'
-                        : column.align === 'center'
-                          ? 'text-center'
-                          : 'text-left'
-                    }`}
-                  >
-                    <div
-                      className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
-                      style={{ width: column.width }}
-                    >
-                      <Skeleton className="h-[27px] w-full bg-gray-700" />
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  if (isLoading || isInitialLoading) {
-    return renderSkeletonTable();
-  }
-
   return (
     <div className="bg-gray-900 rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
@@ -340,12 +269,12 @@ export const Table: FC = () => {
               // Add early loading trigger when we're 80% through the data
               const shouldShowEarlyTrigger =
                 hasMore &&
-                !isLoadingMore &&
+                !isInitialLoading &&
                 index === Math.floor(sortedTokens.length * 0.8) &&
                 sortedTokens.length > 50; // Only show if we have enough data
 
               return (
-                <React.Fragment key={token.id}>
+                <React.Fragment key={`${token.exchange}-${token.id}`}>
                   {shouldShowEarlyTrigger && (
                     <tr>
                       <td colSpan={COLUMNS.length} className="p-0">
@@ -381,6 +310,34 @@ export const Table: FC = () => {
                 </React.Fragment>
               );
             })}
+
+            {isInitialLoading &&
+              Array.from({ length: 100 }).map((_, index) => (
+                <tr
+                  key={`skeleton-${index}`}
+                  className="hover:bg-gray-800 transition-colors"
+                >
+                  {COLUMNS.map(column => (
+                    <td
+                      key={column.key}
+                      className={`${
+                        column.align === 'right'
+                          ? 'text-right'
+                          : column.align === 'center'
+                            ? 'text-center'
+                            : 'text-left'
+                      }`}
+                    >
+                      <div
+                        className="p-2 text-xs text-ellipsis overflow-hidden whitespace-nowrap"
+                        style={{ width: column.width }}
+                      >
+                        <Skeleton className="h-[27px] w-full bg-gray-700" />
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -392,16 +349,9 @@ export const Table: FC = () => {
       {/* Infinite scroll trigger and loading indicator */}
       {hasMore && (
         <div ref={loadMoreRef} className="px-4 py-4 bg-gray-800">
-          {isLoadingMore ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span className="text-gray-300">Loading more...</span>
-            </div>
-          ) : (
-            <div className="text-center text-gray-400 text-sm">
-              Scroll down to load more
-            </div>
-          )}
+          <div className="text-center text-gray-400 text-sm">
+            Scroll down to load more
+          </div>
         </div>
       )}
 
