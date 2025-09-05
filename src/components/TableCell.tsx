@@ -4,6 +4,7 @@ import { usePrevious } from '../hooks/usePrevious';
 import { TokenData, TokenTableColumn } from '../scheme/type';
 import { cn } from '../utils/cn';
 import { formatAge, formatNumber, formatPrice } from '../utils/tokenUtils';
+import { SocialIcons } from './SocialIcons';
 import { TableColoredNumber } from './TableColoredNumber';
 
 export interface TableCellProps {
@@ -57,7 +58,11 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
               / {token.tokenBase}
             </span>
           </div>
-          <div className="text-gray-400">{token.chain}</div>
+
+          <div className="flex items-center">
+            <div className="text-gray-400">{token.chain}</div>
+            <SocialIcons socialLinks={token.socialLinks} />
+          </div>
         </div>
       );
 

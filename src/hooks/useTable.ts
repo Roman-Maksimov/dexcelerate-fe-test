@@ -238,6 +238,10 @@ export const useTable = () => {
                       honeyPot: !pair.token1IsHoneypot,
                       contractVerified: item.contractVerified, // preserve existing
                       dexPaid: pair.dexPaid,
+                      discordLink: pair.linkDiscord,
+                      telegramLink: pair.linkTelegram,
+                      twitterLink: pair.linkTwitter,
+                      webLink: pair.linkWebsite,
                     };
                   }),
                 },
