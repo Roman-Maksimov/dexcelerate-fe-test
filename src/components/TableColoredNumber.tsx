@@ -8,6 +8,7 @@ export interface TableColoredNumberProps {
 
 export const TableColoredNumber: FC<TableColoredNumberProps> = ({ value }) => {
   const { text, isPositive } = formatPercentage(value);
+
   return (
     <div
       className={`px-1 py-0.5 rounded ${

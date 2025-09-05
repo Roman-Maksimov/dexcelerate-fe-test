@@ -1,5 +1,7 @@
 // ===== BASIC TYPES =====
 
+import Decimal from 'decimal.js';
+
 export type SupportedChainName = 'ETH' | 'SOL' | 'BASE' | 'BSC';
 export type SupportedChainId = '1' | '11155111' | '900' | '8453' | '56';
 
@@ -524,8 +526,8 @@ export interface TokenData {
   pairAddress: string;
   chain: SupportedChainName;
   exchange: string; // router or virtualRouter
-  priceUsd: number;
-  volumeUsd: number;
+  priceUsd: Decimal;
+  volumeUsd: Decimal;
   mcap: number;
   totalSupply: number; // For market cap calculations
   priceChangePcs: {

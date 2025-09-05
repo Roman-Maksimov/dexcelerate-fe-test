@@ -23,8 +23,8 @@ export function calculateMarketCap(result: ScannerResult): number {
  */
 export function convertToTokenData(result: ScannerResult): TokenData {
   const chain = chainIdToName(result.chainId);
-  const priceUsd = parseFloat(result.price);
-  const volumeUsd = parseFloat(result.volume);
+  const priceUsd = new Decimal(result.price);
+  const volumeUsd = new Decimal(result.volume);
   const mcap = calculateMarketCap(result);
   const liquidityCurrent = parseFloat(result.liquidity);
   const liquidityChangePc = parseFloat(result.percentChangeInLiquidity);
@@ -43,10 +43,10 @@ export function convertToTokenData(result: ScannerResult): TokenData {
     mcap,
     totalSupply,
     priceChangePcs: {
-      '5m': parseFloat(result.diff5M),
-      '1h': parseFloat(result.diff1H),
-      '6h': parseFloat(result.diff6H),
-      '24h': parseFloat(result.diff24H),
+      '5m': parseFloat(result.diff5M ?? '0'),
+      '1h': parseFloat(result.diff1H ?? '0'),
+      '6h': parseFloat(result.diff6H ?? '0'),
+      '24h': parseFloat(result.diff24H ?? '0'),
     },
     transactions: {
       buys: result.buys || 0,
@@ -79,53 +79,35 @@ export function convertToTokenData(result: ScannerResult): TokenData {
 /**
  * Format number with appropriate suffix (K, M, B)
  */
-export function formatNumber(num: number): string {
-  // Handle NaN, Infinity, and invalid numbers
-  if (!isFinite(num) || isNaN(num)) {
-    return 'N/A';
-  }
+export function formatNumber(num: number | string | Decimal): string {
+  const decimal = new Decimal(num);
 
-  if (num >= 1e9) {
-    return (num / 1e9).toFixed(1) + 'B';
+  if (decimal.greaterThanOrEqualTo(1e9)) {
+    return decimal.div(1e9).toFixed(1) + 'B';
   }
-  if (num >= 1e6) {
-    return (num / 1e6).toFixed(1) + 'M';
+  if (decimal.greaterThanOrEqualTo(1e6)) {
+    return decimal.div(1e6).toFixed(1) + 'M';
   }
-  if (num >= 1e3) {
-    return (num / 1e3).toFixed(1) + 'K';
+  if (decimal.greaterThanOrEqualTo(1e3)) {
+    return decimal.div(1e3).toFixed(1) + 'K';
   }
-  return num.toFixed(2);
+  return decimal.toSignificantDigits(2).toString();
 }
 
 /**
  * Format price with appropriate decimal places and subscript notation for leading zeros
  */
-export function formatPrice(price: number): string {
-  // Handle NaN, Infinity, and invalid numbers
-  if (!isFinite(price) || isNaN(price)) {
-    return 'N/A';
-  }
-
+export function formatPrice(price: number | string | Decimal): string {
   const decimal = new Decimal(price);
 
-  // if (price >= 1) {
-  //   return decimal.toFixed(2);
-  // }
-  // if (price >= 0.01) {
-  //   return decimal.toFixed(4);
-  // }
-  if (price >= 0.0001) {
+  if (decimal.greaterThanOrEqualTo(0.0001)) {
     return formatPriceWithSubscript(decimal.toFixed(6));
   }
-  if (price >= 0.000001) {
+  if (decimal.greaterThan(0)) {
     return formatPriceWithSubscript(decimal.toFixed(8));
   }
-  if (price > 0) {
-    // For very small numbers, use subscript notation for leading zeros
-    return formatPriceWithSubscript(decimal);
-  }
 
-  return '0.00';
+  return formatPriceWithSubscript(decimal.toFixed(0));
 }
 
 /**
@@ -178,11 +160,11 @@ export function formatPercentage(percentage: number): {
   isPositive: boolean;
 } {
   // Handle NaN, Infinity, and invalid numbers
-  if (!isFinite(percentage) || isNaN(percentage)) {
-    return { text: 'N/A', isPositive: false };
+  if (!isFinite(percentage) || isNaN(percentage) || percentage === 0) {
+    return { text: '-', isPositive: false };
   }
 
-  const isPositive = percentage >= 0;
+  const isPositive = percentage > 0;
   const text = `${isPositive ? '+' : ''}${percentage.toFixed(2)}%`;
   return { text, isPositive };
 }

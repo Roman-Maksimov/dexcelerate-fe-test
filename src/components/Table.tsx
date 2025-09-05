@@ -195,7 +195,7 @@ export const Table: FC = () => {
                     return {
                       ...item,
                       price: newPrice,
-                      pairMcapUsd: newMarketCap,
+                      currentMcap: newMarketCap,
                       volume: item.volume + swapVolume,
                       buys: (item.buys ?? 0) + buys,
                       sells: (item.sells ?? 0) + sells,
@@ -237,7 +237,7 @@ export const Table: FC = () => {
                       migrationProgress: Number(migrationProgress),
                       isMintAuthDisabled: pair.mintAuthorityRenounced,
                       isFreezeAuthDisabled: pair.freezeAuthorityRenounced,
-                      honeyPot: !pair.token1IsHoneypot,
+                      honeyPot: pair.token1IsHoneypot,
                       contractVerified: item.contractVerified, // preserve existing
                     };
                   }),
