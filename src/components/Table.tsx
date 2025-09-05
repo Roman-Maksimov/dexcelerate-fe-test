@@ -1,8 +1,10 @@
-import React, { FC, Suspense } from 'react';
+import React, { FC, Suspense, useState } from 'react';
 
 import { useTable } from '../hooks/useTable';
+import { TokenTableFilters } from '../scheme/type';
 import { COLUMNS } from './columns';
 import { Header } from './Header';
+import { TableFilters } from './TableFilters';
 import { TableRow } from './TableRow';
 import { TableRowSkeleton } from './TableRowSkeleton';
 
@@ -11,6 +13,14 @@ export interface TableProps {
 }
 
 export const Table: FC<TableProps> = ({ title }) => {
+  const [filters, setFilters] = useState<TokenTableFilters>({
+    chain: null,
+    minVolume: null,
+    maxAge: null,
+    minMcap: null,
+    excludeHoneypots: false,
+  });
+
   const {
     data,
     sort,
@@ -23,7 +33,21 @@ export const Table: FC<TableProps> = ({ title }) => {
     isFetchingNextPage,
     loadMoreRef,
     earlyLoadRef,
-  } = useTable();
+  } = useTable(filters);
+
+  const handleFiltersChange = (newFilters: TokenTableFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      chain: null,
+      minVolume: null,
+      maxAge: null,
+      minMcap: null,
+      excludeHoneypots: false,
+    });
+  };
 
   return (
     <div>
@@ -34,6 +58,12 @@ export const Table: FC<TableProps> = ({ title }) => {
         reconnectCountdown={reconnectCountdown}
         tokenCount={data?.allPages.length ?? 0}
         totalCount={data?.pages[data.pages.length - 1]?.data.totalRows}
+      />
+
+      <TableFilters
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        onClearFilters={handleClearFilters}
       />
 
       <div className="bg-gray-900 rounded-lg shadow overflow-hidden">

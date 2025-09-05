@@ -8,6 +8,7 @@ import {
   GetScannerResultParams,
   OrderBy,
   ScannerApiResponse,
+  TokenTableFilters,
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
   WsTokenSwap,
@@ -53,7 +54,38 @@ const mapColumnToApiParams = (
   }
 };
 
-export const useTable = () => {
+// Convert TokenTableFilters to GetScannerResultParams
+const convertFiltersToApiParams = (
+  filters: TokenTableFilters
+): Partial<GetScannerResultParams> => {
+  const apiParams: Partial<GetScannerResultParams> = {};
+
+  if (filters.chain) {
+    apiParams.chain = filters.chain;
+  }
+
+  if (filters.minVolume !== null && filters.minVolume !== undefined) {
+    apiParams.minVol24H = filters.minVolume;
+  }
+
+  if (filters.maxAge !== null && filters.maxAge !== undefined) {
+    apiParams.maxAge = filters.maxAge;
+  }
+
+  if (filters.minMcap !== null && filters.minMcap !== undefined) {
+    // Using minVol24H as a placeholder since there's no specific market cap filter in the API
+    // This should be adjusted based on actual API capabilities
+    apiParams.minVol24H = filters.minMcap;
+  }
+
+  if (filters.excludeHoneypots) {
+    apiParams.isNotHP = true;
+  }
+
+  return apiParams;
+};
+
+export const useTable = (filters?: TokenTableFilters) => {
   const queryClient = useQueryClient();
   const [sort, setSort] = useState<TokenTableSort>({
     column: 'volumeUsd',
@@ -63,14 +95,16 @@ export const useTable = () => {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const earlyLoadRef = useRef<HTMLDivElement>(null);
 
-  // Create API parameters with current sort (without page)
+  // Create API parameters with current sort and filters
   const baseApiParams = useMemo(() => {
     const sortParams = mapColumnToApiParams(sort.column, sort.direction);
+    const filterParams = filters ? convertFiltersToApiParams(filters) : {};
     return {
       ...TRENDING_TOKENS_FILTERS,
       ...sortParams,
+      ...filterParams,
     };
-  }, [sort]);
+  }, [sort, filters]);
 
   // Use infinite query for pagination
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =

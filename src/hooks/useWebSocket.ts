@@ -335,7 +335,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         setError(null);
         setIsConnecting(false);
         clearReconnectTimers();
-        
+
         // Restore subscriptions after reconnection
         setTimeout(() => {
           restoreSubscriptions();
@@ -370,7 +370,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
     }
-  }, [handleMessage, onError, ws, clearReconnectTimers, reconnect, restoreSubscriptions, onReconnected]);
+  }, [
+    handleMessage,
+    onError,
+    ws,
+    clearReconnectTimers,
+    reconnect,
+    restoreSubscriptions,
+    onReconnected,
+  ]);
 
   return {
     isConnected,
