@@ -146,7 +146,7 @@ export const useTable = () => {
                 ...page,
                 data: {
                   ...page.data,
-                  pairs: page.data.pairs.map((item, index) => {
+                  pairs: page.data.pairs.map(item => {
                     const { pair, swaps } = updateData;
                     const tokenId = pair.pair;
 
@@ -203,7 +203,7 @@ export const useTable = () => {
 
     onStats: updateData => {
       // Update specific token in infinite query cache
-      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+      const queryKey = [API_KEY_GET_SCANNER, baseApiParams];
 
       queryClient.setQueryData(
         queryKey,
@@ -218,7 +218,7 @@ export const useTable = () => {
                 data: {
                   ...page.data,
                   pairs: page.data.pairs.map(item => {
-                    const { pair, migrationProgress } = updateData;
+                    const { pair, pairStats, migrationProgress } = updateData;
 
                     if (item.pairAddress !== pair.pairAddress) {
                       return item;
@@ -226,11 +226,16 @@ export const useTable = () => {
 
                     return {
                       ...item,
+                      diff5M: pairStats.fiveMin.diff,
+                      diff1H: pairStats.oneHour.diff,
+                      diff6H: pairStats.sixHour.diff,
+                      diff24H: pairStats.twentyFourHour.diff,
                       migrationProgress: Number(migrationProgress),
                       isMintAuthDisabled: pair.mintAuthorityRenounced,
                       isFreezeAuthDisabled: pair.freezeAuthorityRenounced,
-                      honeyPot: pair.token1IsHoneypot,
+                      honeyPot: !pair.token1IsHoneypot,
                       contractVerified: item.contractVerified, // preserve existing
+                      dexPaid: pair.dexPaid,
                     };
                   }),
                 },
