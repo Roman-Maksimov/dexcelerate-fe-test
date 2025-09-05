@@ -30,11 +30,16 @@ export function convertToTokenData(result: ScannerResult): TokenData {
   const liquidityChangePc = parseFloat(result.percentChangeInLiquidity);
   const totalSupply = parseFloat(result.token1TotalSupplyFormatted);
 
+  const match = result.price.match(/\.(\d+)$/);
+  const decimals = match?.[1]?.length ?? 0;
+
   return {
     id: result.pairAddress,
+    tokenBase: result.token0Symbol,
     tokenName: result.token1Name,
     tokenSymbol: result.token1Symbol,
     tokenAddress: result.token1Address,
+    tokenDecimals: decimals,
     pairAddress: result.pairAddress,
     chain,
     exchange: result.virtualRouterType || result.routerAddress,
@@ -97,14 +102,16 @@ export function formatNumber(num: number | string | Decimal): string {
 /**
  * Format price with appropriate decimal places and subscript notation for leading zeros
  */
-export function formatPrice(price: number | string | Decimal): string {
+export function formatPrice(
+  price: number | string | Decimal,
+  decimals = 20
+): string {
   const decimal = new Decimal(price);
 
-  if (decimal.greaterThanOrEqualTo(0.0001)) {
-    return formatPriceWithSubscript(decimal.toFixed(6));
-  }
   if (decimal.greaterThan(0)) {
-    return formatPriceWithSubscript(decimal.toFixed(8));
+    return formatPriceWithSubscript(
+      decimal.toSignificantDigits(decimals).toString()
+    );
   }
 
   return formatPriceWithSubscript(decimal.toFixed(0));
@@ -114,20 +121,15 @@ export function formatPrice(price: number | string | Decimal): string {
  * Format very small numbers with subscript notation for leading zeros
  * Example: 0.000321 -> 0.0₃321, 0.0000321 -> 0.0₄321
  */
-function formatPriceWithSubscript(decimal: string | Decimal): string {
-  const str = typeof decimal === 'string' ? decimal : decimal.toFixed(20); // Use high precision
-  const match = str.match(/^([0-1])\.(0+)(\d+)$/);
+function formatPriceWithSubscript(price: string): string {
+  const match = price.match(/^([0-1])\.(0+)(\d+)$/);
 
   if (!match) {
-    return typeof decimal === 'string' ? decimal : decimal.toFixed(10);
+    return price;
   }
 
   const leadingZeros = match[2];
-  const significantDigits = new Decimal(match[3] ?? 0)
-    .mul(0.0001)
-    .toSignificantDigits(4)
-    .toString()
-    .replace('0.', '');
+  const significantDigits = match[3];
 
   // Only use subscript notation if there are 3 or more leading zeros
   if (leadingZeros && leadingZeros.length >= 3) {
@@ -137,7 +139,7 @@ function formatPriceWithSubscript(decimal: string | Decimal): string {
   }
 
   // For 2 or fewer leading zeros, use regular formatting
-  return typeof decimal === 'string' ? decimal : decimal.toFixed(10);
+  return price;
 }
 
 /**

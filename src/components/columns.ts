@@ -2,13 +2,13 @@ import { TokenTableColumn } from '../scheme/type';
 
 export const COLUMNS: TokenTableColumn[] = [
   { key: 'rank', label: '#', sortable: false, width: '40px', align: 'left' },
-  { key: 'token', label: 'Token', sortable: true, width: '250px' },
+  { key: 'token', label: 'Token', sortable: true, width: '150px' },
   { key: 'exchange', label: 'Exchange', sortable: true, width: '320px' },
   {
     key: 'priceUsd',
     label: 'Price',
     sortable: false, // TODO: no param in the API for the price column
-    width: '100px',
+    width: '300px',
     align: 'right',
   },
   {

@@ -1,5 +1,6 @@
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { AxiosResponse } from 'axios';
+import Decimal from 'decimal.js';
 import React, {
   FC,
   Suspense,
@@ -10,7 +11,7 @@ import React, {
   useState,
 } from 'react';
 
-import { useGetScannerInfiniteQuery } from '../api/hooks';
+import { API_KEY_GET_SCANNER, useGetScannerInfiniteQuery } from '../api/hooks';
 import { usePrevious } from '../hooks/usePrevious';
 import { useWebSocket } from '../hooks/useWebSocket';
 import {
@@ -102,7 +103,7 @@ export const Table: FC = () => {
   } = useWebSocket({
     onScanner: updateData => {
       // Update specific token in infinite query cache
-      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
+      const queryKey = [API_KEY_GET_SCANNER, baseApiParams];
 
       queryClient.setQueryData(
         queryKey,
@@ -156,7 +157,7 @@ export const Table: FC = () => {
                 ...page,
                 data: {
                   ...page.data,
-                  pairs: page.data.pairs.map(item => {
+                  pairs: page.data.pairs.map((item, index) => {
                     const { pair, swaps } = updateData;
                     const tokenId = pair.pair;
 
@@ -170,15 +171,17 @@ export const Table: FC = () => {
                     }
 
                     // Update price from the latest swap
-                    const newPrice = parseFloat(latestSwap.priceToken1Usd);
+                    const newPrice = new Decimal(latestSwap.priceToken1Usd);
 
                     // Recalculate market cap using total supply from token data
-                    const newMarketCap =
-                      parseFloat(item.token1TotalSupplyFormatted) * newPrice;
+                    const newMarketCap = newPrice.mul(
+                      item.token1TotalSupplyFormatted
+                    );
 
                     // Calculate volume from this swap
-                    const swapVolume =
-                      parseFloat(latestSwap.amountToken1) * newPrice;
+                    const newVolume = newPrice
+                      .mul(latestSwap.amountToken1)
+                      .add(item.volume);
 
                     const [buys, sells] = swaps.reduce(
                       (prev, swap) => {
@@ -194,9 +197,9 @@ export const Table: FC = () => {
 
                     return {
                       ...item,
-                      price: newPrice,
-                      currentMcap: newMarketCap,
-                      volume: item.volume + swapVolume,
+                      price: latestSwap.priceToken1Usd,
+                      currentMcap: newMarketCap.toString(),
+                      volume: newVolume.toString(),
                       buys: (item.buys ?? 0) + buys,
                       sells: (item.sells ?? 0) + sells,
                     };
@@ -431,7 +434,7 @@ export const Table: FC = () => {
 
               return (
                 <Suspense
-                  key={`${token.exchange}-${token.id}`}
+                  key={JSON.stringify(token)}
                   fallback={<TableRowSkeleton />}
                 >
                   <TableRow

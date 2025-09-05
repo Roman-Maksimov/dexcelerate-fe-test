@@ -94,6 +94,28 @@
 
   --text-sm: 12px;
   --text-xs: 10px;
+
+  --animate-highlight-text: highlight-text 0.3s ease-out;
+
+  @keyframes highlight-text {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  --animate-highlight-text-2: highlight-text-2 0.3s ease-out;
+
+  @keyframes highlight-text-2 {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
 }
 
 @theme inline {

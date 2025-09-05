@@ -520,9 +520,11 @@ export const NEW_TOKENS_FILTERS: GetScannerResultParams = {
  */
 export interface TokenData {
   id: string;
+  tokenBase: string;
   tokenName: string;
   tokenSymbol: string;
   tokenAddress: string;
+  tokenDecimals: number;
   pairAddress: string;
   chain: SupportedChainName;
   exchange: string; // router or virtualRouter

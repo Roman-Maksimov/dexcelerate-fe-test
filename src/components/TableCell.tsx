@@ -1,6 +1,8 @@
 import { FC } from 'react';
 
+import { usePrevious } from '../hooks/usePrevious';
 import { TokenData, TokenTableColumn } from '../scheme/type';
+import { cn } from '../utils/cn';
 import { formatAge, formatNumber, formatPrice } from '../utils/tokenUtils';
 import { TableColoredNumber } from './TableColoredNumber';
 
@@ -10,25 +12,36 @@ export interface TableCellProps {
   index: number;
 }
 
+const getColumnValue = (token: TokenData, column: TokenTableColumn) => {
+  switch (column.key) {
+    case 'priceUsd':
+      return token.priceUsd;
+    case 'mcap':
+      return token.mcap;
+    default:
+      return undefined;
+  }
+};
+
 export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
+  const value = getColumnValue(token, column);
+  const prevValue = usePrevious(value);
+
   switch (column.key) {
     case 'rank':
       return <span className="text-gray-400 text-sm">{index + 1}</span>;
 
     case 'token':
       return (
-        <div className="flex items-center space-x-3">
-          <div className="w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center">
-            <span className="font-bold text-white">
-              {token.tokenSymbol.charAt(0)}
+        <div className="space-x-3">
+          <div>
+            <span className="font-bold text-white">{token.tokenSymbol}</span>
+            <span className="font-normal text-gray-400">
+              {' '}
+              / {token.tokenBase}
             </span>
           </div>
-          <div>
-            <div className="font-medium text-white">{token.tokenName}</div>
-            <div className="text-gray-400">
-              {token.tokenSymbol} • {token.chain}
-            </div>
-          </div>
+          <div className="text-gray-400">{token.chain}</div>
         </div>
       );
 
@@ -41,8 +54,13 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
 
     case 'priceUsd':
       return (
-        <span className="font-mono text-white">
-          ${formatPrice(token.priceUsd)}
+        <span
+          className={cn('font-mono text-white', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
+          ${formatPrice(token.priceUsd, token.tokenDecimals)}
         </span>
       );
 
