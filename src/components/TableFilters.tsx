@@ -215,7 +215,7 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
         </div>
 
         {/* Active Filters Count */}
-        <div className="space-y-1">
+        <div className="flex flex-col items-center space-y-1">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
             Active
           </label>
