@@ -82,6 +82,8 @@ export const useTable = () => {
   // WebSocket connection
   const {
     isConnected,
+    isConnecting,
+    reconnectCountdown,
     subscriptionsRef,
     subscribeToScanner,
     unsubscribeFromScanner,
@@ -109,13 +111,13 @@ export const useTable = () => {
           };
 
           const newPairs = updateData.results.pairs;
-          const pageSize = 100; // Размер страницы
+          const pageSize = 100; // Page size
           const newPages = chunkArray(newPairs, pageSize);
 
           return {
             ...oldData,
             pages: newPages.map((pairs, index) => {
-              // Используем существующую структуру страницы или создаем новую
+              // Use existing page structure or create new one
               const existingPage = oldData.pages[index];
               return {
                 ...existingPage,
@@ -383,5 +385,7 @@ export const useTable = () => {
     isFetchingNextPage,
     isLoading,
     isConnected,
+    isConnecting,
+    reconnectCountdown,
   };
 };

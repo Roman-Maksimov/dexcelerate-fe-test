@@ -24,8 +24,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ws, setWs] = useState<WebSocket>();
+  const [reconnectCountdown, setReconnectCountdown] = useState<number | null>(
+    null
+  );
+  const [isConnecting, setIsConnecting] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const tokensRef = useRef<Map<string, TokenData>>(new Map());
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const subscriptionsRef = useRef<
     Map<
       string,
@@ -37,7 +42,65 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     >
   >(new Map());
 
-  const { onTokensUpdate, onScanner, onTick, onStats, onError } = options;
+  const { onScanner, onTick, onStats, onError } = options;
+
+  // Function to clear reconnection timers
+  const clearReconnectTimers = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setReconnectCountdown(null);
+    setIsConnecting(false);
+  }, []);
+
+  // Function for reconnection (separate from connect to avoid circular dependency)
+  const reconnect = useCallback(() => {
+    clearReconnectTimers();
+
+    let countdown = 3;
+    setReconnectCountdown(countdown);
+
+    countdownIntervalRef.current = setInterval(() => {
+      countdown -= 1;
+      setReconnectCountdown(countdown);
+
+      if (countdown <= 0) {
+        clearInterval(countdownIntervalRef.current!);
+        countdownIntervalRef.current = null;
+        setReconnectCountdown(null);
+      }
+    }, 1000);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      // Clear countdown before attempting connection
+      setReconnectCountdown(null);
+      // Set connecting state
+      setIsConnecting(true);
+
+      // Close existing connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      try {
+        console.log('Attempting to reconnect to WebSocket...');
+        wsRef.current = new WebSocket(import.meta.env.VITE_WS_URL);
+        setWs(wsRef.current);
+      } catch (err) {
+        console.error('Failed to create WebSocket connection:', err);
+        setError('Failed to create WebSocket connection');
+        setIsConnecting(false);
+        // Recursively start reconnection
+        setTimeout(() => reconnect(), 1000);
+      }
+    }, 3000);
+  }, [clearReconnectTimers]);
 
   const sendMessage = useCallback((message: OutgoingWebSocketMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -149,8 +212,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const handleWpegPricesUpdate = useCallback((data: WpegPricesEventPayload) => {
     console.log('Received WPEG prices:', data.prices);
-    // Здесь можно добавить логику для обновления цен WPEG токенов
-    // Например, обновить глобальное состояние с ценами
+    // Here you can add logic to update WPEG token prices
+    // For example, update global state with prices
   }, []);
 
   const handleMessage = useCallback(
@@ -176,11 +239,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   );
 
   const connect = useCallback(() => {
-    // Закрываем существующее соединение
+    // Clear reconnection timers
+    clearReconnectTimers();
+
+    // Close existing connection
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+
+    // Set connecting state
+    setIsConnecting(true);
 
     try {
       console.log('Attempting to connect to WebSocket...');
@@ -191,18 +260,22 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     } catch (err) {
       console.error('Failed to create WebSocket connection:', err);
       setError('Failed to create WebSocket connection');
+      setIsConnecting(false);
+      // Start reconnection on connection creation error
+      reconnect();
     }
-  }, []);
+  }, [clearReconnectTimers, reconnect]);
 
   const disconnect = useCallback(() => {
     console.log('Disconnecting WebSocket...');
+    clearReconnectTimers();
     if (wsRef.current) {
       wsRef.current.close(1000, 'Manual disconnect');
       wsRef.current = null;
     }
     setWs(undefined);
     setIsConnected(false);
-  }, []);
+  }, [clearReconnectTimers]);
 
   useEffect(() => {
     connect();
@@ -212,23 +285,39 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     };
   }, [connect, disconnect]);
 
+  // Clear timers on component unmount
+  useEffect(() => {
+    return () => {
+      clearReconnectTimers();
+    };
+  }, [clearReconnectTimers]);
+
   useEffect(() => {
     if (ws) {
       ws.onopen = () => {
         console.log('WebSocket connected successfully');
         setIsConnected(true);
         setError(null);
+        setIsConnecting(false);
+        clearReconnectTimers();
       };
 
       ws.onclose = event => {
         console.log('WebSocket disconnected', event.code, event.reason);
         setIsConnected(false);
+
+        // Start reconnection only if it wasn't a manual disconnect
+        if (event.code !== 1000) {
+          reconnect();
+        }
       };
 
       ws.onerror = event => {
         console.error('WebSocket error:', event);
         setError('WebSocket connection error');
         onError?.(event);
+        // On error also start reconnection
+        reconnect();
       };
 
       ws.onmessage = event => {
@@ -240,11 +329,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
     }
-  }, [handleMessage, onError, ws]);
+  }, [handleMessage, onError, ws, clearReconnectTimers, reconnect]);
 
   return {
     isConnected,
+    isConnecting,
     error,
+    reconnectCountdown,
     subscriptionsRef,
     subscribeToScanner,
     unsubscribeFromScanner,

@@ -17,6 +17,8 @@ export const Table: FC<TableProps> = ({ title }) => {
     handleSort,
     hasNextPage,
     isConnected,
+    isConnecting,
+    reconnectCountdown,
     isLoading,
     isFetchingNextPage,
     loadMoreRef,
@@ -28,6 +30,8 @@ export const Table: FC<TableProps> = ({ title }) => {
       <Header
         title={title}
         isConnected={isConnected}
+        isConnecting={isConnecting}
+        reconnectCountdown={reconnectCountdown}
         tokenCount={data?.allPages.length ?? 0}
         totalCount={data?.pages[data.pages.length - 1]?.data.totalRows}
       />

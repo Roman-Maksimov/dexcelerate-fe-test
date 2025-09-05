@@ -3,6 +3,8 @@ import { FC } from 'react';
 interface HeaderProps {
   title?: string;
   isConnected?: boolean;
+  isConnecting?: boolean;
+  reconnectCountdown?: number | null;
   tokenCount?: number;
   totalCount?: number;
 }
@@ -10,6 +12,8 @@ interface HeaderProps {
 export const Header: FC<HeaderProps> = ({
   title,
   isConnected,
+  isConnecting,
+  reconnectCountdown,
   tokenCount,
   totalCount,
 }) => {
@@ -22,11 +26,23 @@ export const Header: FC<HeaderProps> = ({
             <span>Connection:</span>
             <span
               className={`flex items-center space-x-1 ${
-                isConnected ? 'text-green-400' : 'text-red-400'
+                isConnected
+                  ? 'text-green-400'
+                  : isConnecting
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-current"></span>
-              <span>{isConnected ? 'Connected' : 'Not connected'}</span>
+              <span>
+                {isConnected
+                  ? 'Connected'
+                  : isConnecting
+                    ? 'Establishing connection...'
+                    : reconnectCountdown !== null
+                      ? `Reconnecting in ${reconnectCountdown}s...`
+                      : 'Not connected'}
+              </span>
             </span>
           </div>
           <div className="flex items-center space-x-2">
