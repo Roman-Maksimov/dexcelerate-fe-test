@@ -18,6 +18,22 @@ const getColumnValue = (token: TokenData, column: TokenTableColumn) => {
       return token.priceUsd;
     case 'mcap':
       return token.mcap;
+    case 'volumeUsd':
+      return token.volumeUsd;
+    case 'priceChange5m':
+      return token.priceChangePcs['5m'];
+    case 'priceChange1h':
+      return token.priceChangePcs['1h'];
+    case 'priceChange6h':
+      return token.priceChangePcs['6h'];
+    case 'priceChange2h':
+      return token.priceChangePcs['24h'];
+    case 'buys':
+      return token.transactions.buys;
+    case 'sells':
+      return token.transactions.sells;
+    case 'audit':
+      return token.audit;
     default:
       return undefined;
   }
@@ -66,42 +82,72 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
 
     case 'mcap':
       return (
-        <span className="font-mono text-white">
+        <span
+          className={cn('font-mono text-white', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           ${formatNumber(token.mcap)}
         </span>
       );
 
     case 'volumeUsd':
       return (
-        <span className="font-mono text-white">
+        <span
+          className={cn('font-mono text-white', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           ${formatNumber(token.volumeUsd)}
         </span>
       );
 
     case 'priceChange5m':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <TableColoredNumber value={token.priceChangePcs['5m']} />
         </div>
       );
 
     case 'priceChange1h':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <TableColoredNumber value={token.priceChangePcs['1h']} />
         </div>
       );
 
     case 'priceChange6h':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <TableColoredNumber value={token.priceChangePcs['6h']} />
         </div>
       );
 
     case 'priceChange24h':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <TableColoredNumber value={token.priceChangePcs['24h']} />
         </div>
       );
@@ -115,7 +161,12 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
 
     case 'buys':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <div className="text-green-400 font-mono">
             {formatNumber(token.transactions.buys)}
           </div>
@@ -124,7 +175,12 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
 
     case 'sells':
       return (
-        <div className="text-center">
+        <div
+          className={cn('text-center', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <div className="text-red-400 font-mono">
             {formatNumber(token.transactions.sells)}
           </div>
@@ -133,7 +189,12 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
 
     case 'liquidity': {
       return (
-        <div className="text-right">
+        <div
+          className={cn('text-right', {
+            'animate-highlight-text': prevValue !== value,
+            'animate-highlight-text-2': prevValue === value,
+          })}
+        >
           <div className="font-mono text-white">
             ${formatNumber(token.liquidity.current)}
           </div>
@@ -148,7 +209,12 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
     case 'audit':
       return (
         <div className="flex flex-col items-center space-y-1">
-          <div className="flex space-x-2">
+          <div
+            className={cn('flex space-x-2', {
+              'animate-highlight-text': prevValue !== value,
+              'animate-highlight-text-2': prevValue === value,
+            })}
+          >
             <div className="flex flex-col items-center">
               <div
                 className={`w-3 h-3 rounded-full ${
