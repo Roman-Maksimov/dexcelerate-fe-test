@@ -110,7 +110,9 @@ export function formatPrice(
 
   if (decimal.greaterThan(0)) {
     return formatPriceWithSubscript(
-      decimal.toSignificantDigits(decimals || 0).toString()
+      !decimals
+        ? decimal.toFixed(0)
+        : decimal.toSignificantDigits(decimals).toString()
     );
   }
 

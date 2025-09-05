@@ -247,6 +247,12 @@ export const useTable = () => {
         }
       );
     },
+    onReconnected: () => {
+      // Re-subscribe to all data when WebSocket reconnects
+      if (isConnected && data?.allPages.length) {
+        subscribe();
+      }
+    },
   });
 
   const subscribe = useCallback(() => {

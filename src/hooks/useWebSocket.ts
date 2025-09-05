@@ -18,6 +18,7 @@ interface UseWebSocketOptions {
   onTick?: (data: TickEventPayload) => void;
   onStats?: (data: PairStatsMsgData) => void;
   onError?: (error: Event) => void;
+  onReconnected?: () => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -41,8 +42,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
     >
   >(new Map());
+  const lastScannerParamsRef = useRef<GetScannerResultParams | null>(null);
 
-  const { onScanner, onTick, onStats, onError } = options;
+  const { onScanner, onTick, onStats, onError, onReconnected } = options;
 
   // Function to clear reconnection timers
   const clearReconnectTimers = useCallback(() => {
@@ -109,6 +111,38 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       console.warn('WebSocket is not connected');
     }
   }, []);
+
+  // Function to restore all active subscriptions
+  const restoreSubscriptions = useCallback(() => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    // Restore scanner subscription
+    if (lastScannerParamsRef.current) {
+      sendMessage({
+        event: 'scanner-filter',
+        data: lastScannerParamsRef.current,
+      });
+    }
+
+    // Restore pair subscriptions
+    subscriptionsRef.current.forEach((subscription, key) => {
+      if (key.startsWith('pair-')) {
+        sendMessage({
+          event: 'subscribe-pair',
+          data: subscription,
+        });
+      } else if (key.startsWith('pair-stats-')) {
+        sendMessage({
+          event: 'subscribe-pair-stats',
+          data: subscription,
+        });
+      }
+    });
+
+    console.log('Restored subscriptions:', subscriptionsRef.current.size);
+  }, [sendMessage]);
 
   const subscribeToPair = useCallback(
     (token: TokenData) => {
@@ -192,6 +226,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const subscribeToScanner = useCallback(
     (filters: GetScannerResultParams) => {
+      lastScannerParamsRef.current = filters;
       sendMessage({
         event: 'scanner-filter',
         data: filters,
@@ -300,6 +335,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         setError(null);
         setIsConnecting(false);
         clearReconnectTimers();
+        
+        // Restore subscriptions after reconnection
+        setTimeout(() => {
+          restoreSubscriptions();
+          onReconnected?.();
+        }, 100); // Small delay to ensure connection is fully established
       };
 
       ws.onclose = event => {
@@ -329,7 +370,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
     }
-  }, [handleMessage, onError, ws, clearReconnectTimers, reconnect]);
+  }, [handleMessage, onError, ws, clearReconnectTimers, reconnect, restoreSubscriptions, onReconnected]);
 
   return {
     isConnected,
