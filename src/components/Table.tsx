@@ -109,14 +109,29 @@ export const Table: FC = () => {
         (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
           if (!oldData?.pages) return oldData;
 
+          // Helper function to chunk array into pages of specified size
+          const chunkArray = <T,>(array: T[], chunkSize: number): T[][] => {
+            const chunks: T[][] = [];
+            for (let i = 0; i < array.length; i += chunkSize) {
+              chunks.push(array.slice(i, i + chunkSize));
+            }
+            return chunks;
+          };
+
+          const newPairs = updateData.results.pairs;
+          const pageSize = 100; // Размер страницы
+          const newPages = chunkArray(newPairs, pageSize);
+
           return {
             ...oldData,
-            pages: oldData.pages.map(page => {
+            pages: newPages.map((pairs, index) => {
+              // Используем существующую структуру страницы или создаем новую
+              const existingPage = oldData.pages[index];
               return {
-                ...page,
+                ...existingPage,
                 data: {
-                  ...page.data,
-                  pairs: updateData.results.pairs,
+                  ...existingPage?.data,
+                  pairs,
                 },
               };
             }),
