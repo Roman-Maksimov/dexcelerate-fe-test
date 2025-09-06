@@ -1,6 +1,7 @@
 import React, { FC, Suspense } from 'react';
 
 import { useTable } from '../hooks/useTable';
+import { TokenTableFilters } from '../scheme/type';
 import { COLUMNS } from './columns';
 import { Header } from './Header';
 import { TableFilters } from './TableFilters';
@@ -9,9 +10,10 @@ import { TableRowSkeleton } from './TableRowSkeleton';
 
 export interface TableProps {
   title?: string;
+  filters?: TokenTableFilters;
 }
 
-export const Table: FC<TableProps> = ({ title }) => {
+export const Table: FC<TableProps> = ({ title, filters: customFilters }) => {
   const {
     data,
     sort,
@@ -27,7 +29,7 @@ export const Table: FC<TableProps> = ({ title }) => {
     isFetchingNextPage,
     loadMoreRef,
     earlyLoadRef,
-  } = useTable();
+  } = useTable({ filters: customFilters });
 
   return (
     <div>

@@ -12,7 +12,6 @@ import {
   TickEventPayload,
   TokenTableFilters,
   TokenTableSort,
-  TRENDING_TOKENS_FILTERS,
   WsTokenSwap,
 } from '../scheme/type';
 import { useWebSocket } from './useWebSocket';
@@ -80,7 +79,11 @@ const convertFiltersToApiParams = (
   return apiParams;
 };
 
-export const useTable = () => {
+interface UseTableProps {
+  filters?: TokenTableFilters;
+}
+
+export const useTable = ({ filters: customFilters }: UseTableProps) => {
   const queryClient = useQueryClient();
   const [sort, setSort] = useState<TokenTableSort>({
     column: 'volumeUsd',
@@ -102,11 +105,11 @@ export const useTable = () => {
     const sortParams = mapColumnToApiParams(sort.column, sort.direction);
     const filterParams = filters ? convertFiltersToApiParams(filters) : {};
     return {
-      ...TRENDING_TOKENS_FILTERS,
+      ...customFilters,
       ...sortParams,
       ...filterParams,
     };
-  }, [sort, filters]);
+  }, [sort.column, sort.direction, filters, customFilters]);
 
   // Use infinite query for pagination
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =

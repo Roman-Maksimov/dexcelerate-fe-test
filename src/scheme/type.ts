@@ -500,7 +500,6 @@ export function chainIdToName(chainId: number): SupportedChainName {
 export const TRENDING_TOKENS_FILTERS: GetScannerResultParams = {
   rankBy: 'volume',
   orderBy: 'desc',
-  timeFrame: '24H',
   minVol24H: 1000, // minimum $1k volume
   isNotHP: true, // exclude honeypots
   maxAge: 7 * 24 * 60 * 60, // max 7 days old

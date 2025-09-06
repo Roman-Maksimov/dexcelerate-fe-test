@@ -1,10 +1,8 @@
 import { FC } from 'react';
 
+import { Table } from '../components/Table';
+import { NEW_TOKENS_FILTERS } from '../scheme/type';
+
 export const NewTokensPage: FC = () => {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">New Tokens</h1>
-      <p className="text-muted-foreground">New tokens table here</p>
-    </div>
-  );
+  return <Table title="New tokens" filters={NEW_TOKENS_FILTERS} />;
 };
