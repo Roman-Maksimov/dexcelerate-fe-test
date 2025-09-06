@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, ReactNode } from 'react';
 
 import { usePrevious } from '../hooks/usePrevious';
 import { TokenData, TokenTableColumn } from '../scheme/type';
@@ -16,11 +16,11 @@ export interface TableCellProps {
 const getColumnValue = (token: TokenData, column: TokenTableColumn) => {
   switch (column.key) {
     case 'priceUsd':
-      return token.priceUsd;
+      return `$${formatPrice(token.priceUsd, token.tokenDecimals)}`;
     case 'mcap':
-      return token.mcap;
+      return `$${formatNumber(token.mcap)}`;
     case 'volumeUsd':
-      return token.volumeUsd;
+      return `$${formatNumber(token.volumeUsd)}`;
     case 'priceChange5m':
       return token.priceChangePcs['5m'];
     case 'priceChange1h':
@@ -33,6 +33,8 @@ const getColumnValue = (token: TokenData, column: TokenTableColumn) => {
       return token.transactions.buys;
     case 'sells':
       return token.transactions.sells;
+    case 'liquidity':
+      return `$${formatNumber(token.liquidity.current)}`;
     case 'audit':
       return token.audit;
     default:
@@ -81,7 +83,7 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
             'animate-highlight-text-2': prevValue === value,
           })}
         >
-          ${formatPrice(token.priceUsd, token.tokenDecimals)}
+          {value as ReactNode}
         </span>
       );
 
@@ -93,7 +95,7 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
             'animate-highlight-text-2': prevValue === value,
           })}
         >
-          ${formatNumber(token.mcap)}
+          {value as ReactNode}
         </span>
       );
 
@@ -105,7 +107,7 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
             'animate-highlight-text-2': prevValue === value,
           })}
         >
-          ${formatNumber(token.volumeUsd)}
+          {value as ReactNode}
         </span>
       );
 
@@ -200,9 +202,7 @@ export const TableCell: FC<TableCellProps> = ({ token, column, index }) => {
             'animate-highlight-text-2': prevValue === value,
           })}
         >
-          <div className="font-mono text-white">
-            ${formatNumber(token.liquidity.current)}
-          </div>
+          <div className="font-mono text-white">{value as ReactNode}</div>
           <div className="text-xs text-gray-400">
             {formatNumber(token.transactions.buys)}/
             {formatNumber(token.transactions.sells)}

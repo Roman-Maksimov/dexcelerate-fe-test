@@ -15,7 +15,6 @@ import {
   TRENDING_TOKENS_FILTERS,
   WsTokenSwap,
 } from '../scheme/type';
-import { usePrevious } from './usePrevious';
 import { useWebSocket } from './useWebSocket';
 
 // Map column keys to API parameters
@@ -112,8 +111,6 @@ export const useTable = () => {
   // Use infinite query for pagination
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useGetScannerInfiniteQuery(baseApiParams);
-
-  const prevBaseApiParams = usePrevious(baseApiParams);
 
   const ticksStackRef = useRef<Map<string, TickEventPayload>>(new Map());
   const statsStackRef = useRef<Map<string, PairStatsMsgData>>(new Map());
