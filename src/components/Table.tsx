@@ -1,4 +1,4 @@
-import React, { FC, Suspense, useState } from 'react';
+import React, { FC, Suspense, useCallback, useState } from 'react';
 
 import { useTable } from '../hooks/useTable';
 import { TokenTableFilters } from '../scheme/type';
@@ -35,11 +35,11 @@ export const Table: FC<TableProps> = ({ title }) => {
     earlyLoadRef,
   } = useTable(filters);
 
-  const handleFiltersChange = (newFilters: TokenTableFilters) => {
+  const handleFiltersChange = useCallback((newFilters: TokenTableFilters) => {
     setFilters(newFilters);
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setFilters({
       chain: null,
       minVolume: null,
@@ -47,7 +47,7 @@ export const Table: FC<TableProps> = ({ title }) => {
       minMcap: null,
       excludeHoneypots: false,
     });
-  };
+  }, []);
 
   return (
     <div>

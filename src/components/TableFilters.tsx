@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { SupportedChainName, TokenTableFilters } from '../scheme/type';
 import { Button } from '../ui/button';
@@ -31,14 +31,46 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
   onClearFilters,
 }) => {
   const [localFilters, setLocalFilters] = useState<TokenTableFilters>(filters);
+  const [debouncedFilters, setDebouncedFilters] =
+    useState<TokenTableFilters>(filters);
+  const [isDebouncing, setIsDebouncing] = useState(false);
 
-  const handleFilterChange = (key: keyof TokenTableFilters, value: unknown) => {
-    const newFilters = { ...localFilters, [key]: value };
-    setLocalFilters(newFilters);
-    onFiltersChange(newFilters);
-  };
+  // Debounce effect for input fields
+  useEffect(() => {
+    setIsDebouncing(true);
+    const timer = setTimeout(() => {
+      setDebouncedFilters(localFilters);
+      setIsDebouncing(false);
+    }, 500); // 500ms debounce delay
 
-  const handleClearFilters = () => {
+    return () => {
+      clearTimeout(timer);
+      setIsDebouncing(false);
+    };
+  }, [localFilters]);
+
+  // Apply debounced filters to parent
+  useEffect(() => {
+    onFiltersChange(debouncedFilters);
+  }, [debouncedFilters, onFiltersChange]);
+
+  const handleFilterChange = useCallback(
+    (key: keyof TokenTableFilters, value: unknown) => {
+      setLocalFilters(prev => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const handleImmediateFilterChange = useCallback(
+    (key: keyof TokenTableFilters, value: unknown) => {
+      const newFilters = { ...localFilters, [key]: value };
+      setLocalFilters(newFilters);
+      setDebouncedFilters(newFilters); // Apply immediately for select and checkbox
+    },
+    [localFilters]
+  );
+
+  const handleClearFilters = useCallback(() => {
     const clearedFilters: TokenTableFilters = {
       chain: null,
       minVolume: null,
@@ -47,8 +79,9 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
       excludeHoneypots: false,
     };
     setLocalFilters(clearedFilters);
+    setDebouncedFilters(clearedFilters);
     onClearFilters();
-  };
+  }, [onClearFilters]);
 
   const formatNumber = (value: number | null): string => {
     if (value === null) return '';
@@ -100,7 +133,9 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
           </label>
           <Select
             value={localFilters.chain || undefined}
-            onValueChange={value => handleFilterChange('chain', value || null)}
+            onValueChange={value =>
+              handleImmediateFilterChange('chain', value || null)
+            }
           >
             <SelectTrigger className="h-9 bg-gray-800/50 border-gray-600/50 text-white hover:bg-gray-700/50 focus:border-blue-500/50">
               <SelectValue placeholder="All" />
@@ -201,7 +236,7 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
               id="exclude-honeypots"
               checked={localFilters.excludeHoneypots || false}
               onCheckedChange={checked =>
-                handleFilterChange('excludeHoneypots', checked)
+                handleImmediateFilterChange('excludeHoneypots', checked)
               }
               className="border-gray-600/50 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 hover:border-gray-500/50"
             />
@@ -220,7 +255,34 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
             Active
           </label>
           <div className="h-9 flex items-center justify-center">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-400 border border-blue-600/30">
+            <span
+              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
+                isDebouncing
+                  ? 'bg-yellow-600/20 text-yellow-400 border-yellow-600/30'
+                  : 'bg-blue-600/20 text-blue-400 border-blue-600/30'
+              }`}
+            >
+              {isDebouncing && (
+                <svg
+                  className="w-3 h-3 mr-1 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
               {
                 Object.values(localFilters).filter(
                   value => value !== null && value !== false
