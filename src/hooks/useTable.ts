@@ -7,7 +7,9 @@ import { API_KEY_GET_SCANNER, useGetScannerInfiniteQuery } from '../api/hooks';
 import {
   GetScannerResultParams,
   OrderBy,
+  PairStatsMsgData,
   ScannerApiResponse,
+  TickEventPayload,
   TokenTableFilters,
   TokenTableSort,
   TRENDING_TOKENS_FILTERS,
@@ -113,6 +115,9 @@ export const useTable = (filters?: TokenTableFilters) => {
   const prevIsLoading = usePrevious(isLoading);
   const prevIsFetchingNextPage = usePrevious(isFetchingNextPage);
 
+  const ticksStackRef = useRef<Map<string, TickEventPayload>>(new Map());
+  const statsStackRef = useRef<Map<string, PairStatsMsgData>>(new Map());
+
   // WebSocket connection
   const {
     isConnected,
@@ -167,74 +172,7 @@ export const useTable = (filters?: TokenTableFilters) => {
     },
 
     onTick: updateData => {
-      // Update specific token in infinite query cache
-      const queryKey = ['API_KEY_GET_SCANNER', baseApiParams];
-
-      queryClient.setQueryData(
-        queryKey,
-        (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
-          if (!oldData?.pages) return oldData;
-
-          return {
-            ...oldData,
-            pages: oldData.pages.map(page => {
-              return {
-                ...page,
-                data: {
-                  ...page.data,
-                  pairs: page.data.pairs.map(item => {
-                    const { pair, swaps } = updateData;
-                    const tokenId = pair.pair;
-
-                    // Get the latest non-outlier swap
-                    const latestSwap = swaps
-                      .filter((swap: WsTokenSwap) => !swap.isOutlier)
-                      .pop();
-
-                    if (item.pairAddress !== tokenId || !latestSwap) {
-                      return item;
-                    }
-
-                    // Update price from the latest swap
-                    const newPrice = new Decimal(latestSwap.priceToken1Usd);
-
-                    // Recalculate market cap using total supply from token data
-                    const newMarketCap = newPrice.mul(
-                      item.token1TotalSupplyFormatted
-                    );
-
-                    // Calculate volume from this swap
-                    const newVolume = newPrice
-                      .mul(latestSwap.amountToken1)
-                      .add(item.volume);
-
-                    const [buys, sells] = swaps.reduce(
-                      (prev, swap) => {
-                        const isBuy =
-                          swap.tokenInAddress === item.token1Address;
-
-                        return isBuy
-                          ? [prev[0] + 1, prev[1]]
-                          : [prev[0], prev[1] + 1];
-                      },
-                      [0, 0]
-                    );
-
-                    return {
-                      ...item,
-                      price: latestSwap.priceToken1Usd,
-                      currentMcap: newMarketCap.toString(),
-                      volume: newVolume.toString(),
-                      buys: (item.buys ?? 0) + buys,
-                      sells: (item.sells ?? 0) + sells,
-                    };
-                  }),
-                },
-              };
-            }),
-          };
-        }
-      );
+      ticksStackRef.current.set(updateData.pair.pair, updateData);
     },
 
     onStats: updateData => {
@@ -317,6 +255,98 @@ export const useTable = (filters?: TokenTableFilters) => {
     unsubscribeFromPair,
     unsubscribeFromPairStats,
   ]);
+
+  const processUpdates = useCallback(() => {
+    const ticks = new Map(ticksStackRef.current);
+
+    ticksStackRef.current.clear();
+
+    // Update specific token in infinite query cache
+    const queryKey = [API_KEY_GET_SCANNER, baseApiParams];
+
+    queryClient.setQueryData(
+      queryKey,
+      (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
+        if (!oldData?.pages) return oldData;
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => {
+            return {
+              ...page,
+              data: {
+                ...page.data,
+                pairs: page.data.pairs.map(item => {
+                  if (!ticks.has(item.pairAddress)) {
+                    return item;
+                  }
+
+                  const { pair, swaps } = ticks.get(item.pairAddress)!;
+                  const tokenId = pair.pair;
+
+                  // Get the latest non-outlier swap
+                  const latestSwap = swaps
+                    .filter((swap: WsTokenSwap) => !swap.isOutlier)
+                    .pop();
+
+                  if (item.pairAddress !== tokenId || !latestSwap) {
+                    return item;
+                  }
+
+                  // Update price from the latest swap
+                  const newPrice = new Decimal(latestSwap.priceToken1Usd);
+
+                  // Recalculate market cap using total supply from token data
+                  const newMarketCap = newPrice.mul(
+                    item.token1TotalSupplyFormatted
+                  );
+
+                  // Calculate volume from this swap
+                  const newVolume = newPrice
+                    .mul(latestSwap.amountToken1)
+                    .add(item.volume);
+
+                  const [buys, sells] = swaps.reduce(
+                    (prev, swap) => {
+                      const isBuy = swap.tokenInAddress === item.token1Address;
+
+                      return isBuy
+                        ? [prev[0] + 1, prev[1]]
+                        : [prev[0], prev[1] + 1];
+                    },
+                    [0, 0]
+                  );
+
+                  return {
+                    ...item,
+                    price: latestSwap.priceToken1Usd,
+                    currentMcap: newMarketCap.toString(),
+                    volume: newVolume.toString(),
+                    buys: (item.buys ?? 0) + buys,
+                    sells: (item.sells ?? 0) + sells,
+                  };
+                }),
+              },
+            };
+          }),
+        };
+      }
+    );
+  }, [baseApiParams, queryClient]);
+
+  // Processing data updates in bulk with some interval
+  useEffect(() => {
+    const interval = setInterval(
+      processUpdates,
+      import.meta.env.VITE_DATA_UPDATE_INTERVAL
+        ? parseInt(import.meta.env.VITE_DATA_UPDATE_INTERVAL)
+        : 1_000
+    );
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [processUpdates]);
 
   // Subscribe to WebSocket updates with current sort parameters
   useEffect(() => {
