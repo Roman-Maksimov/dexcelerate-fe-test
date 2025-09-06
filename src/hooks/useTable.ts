@@ -72,6 +72,10 @@ const convertFiltersToApiParams = (
     apiParams.maxAge = filters.maxAge;
   }
 
+  if (filters.minMcap !== null && filters.minMcap !== undefined) {
+    apiParams.minMcap = filters.minMcap;
+  }
+
   if (filters.excludeHoneypots) {
     apiParams.isNotHP = true;
   }

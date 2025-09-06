@@ -52,6 +52,10 @@ export interface GetScannerResultParams {
   minLiq?: number | null;
   maxLiq?: number | null;
 
+  // Mcap filter
+  minMcap?: number | null;
+  maxMcap?: number | null;
+
   // Transaction filters
   minBuys24H?: number | null;
   minSells24H?: number | null;

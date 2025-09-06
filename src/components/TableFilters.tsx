@@ -118,6 +118,7 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
             Chain
+            <div className="text-[8px] text-gray-600">&nbsp;</div>
           </label>
           <Select
             value={localFilters.chain || undefined}
@@ -149,6 +150,7 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
             {localFilters.minVolume
               ? `(${formatNumber(localFilters.minVolume)})`
               : '(1K = 1,000)'}
+            <div className="text-[8px] text-gray-600">&nbsp;</div>
           </label>
           <Input
             type="number"
@@ -185,6 +187,7 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
                   }
                 })()
               : '(seconds)'}
+            <div className="text-[8px] text-gray-600">&nbsp;</div>
           </label>
           <Input
             type="number"
@@ -212,6 +215,9 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
             {localFilters.minMcap
               ? `(${formatNumber(localFilters.minMcap)})`
               : '(1K = 1,000)'}
+            <div className="text-[8px] text-gray-600">
+              * how to filter by mcap?
+            </div>
           </label>
           <Input
             type="number"
