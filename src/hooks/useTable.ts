@@ -74,12 +74,6 @@ const convertFiltersToApiParams = (
     apiParams.maxAge = filters.maxAge;
   }
 
-  if (filters.minMcap !== null && filters.minMcap !== undefined) {
-    // Using minVol24H as a placeholder since there's no specific market cap filter in the API
-    // This should be adjusted based on actual API capabilities
-    apiParams.minVol24H = filters.minMcap;
-  }
-
   if (filters.excludeHoneypots) {
     apiParams.isNotHP = true;
   }

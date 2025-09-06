@@ -83,19 +83,6 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
     onClearFilters();
   }, [onClearFilters]);
 
-  const formatNumber = (value: number | null): string => {
-    if (value === null) return '';
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toString();
-  };
-
-  const parseNumber = (value: string): number | null => {
-    if (!value) return null;
-    const num = parseFloat(value);
-    return isNaN(num) ? null : num;
-  };
-
   return (
     <div className="mb-6 bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
@@ -160,16 +147,16 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
             Min Volume
           </label>
           <Input
-            type="text"
-            placeholder="1K, 1M"
-            value={formatNumber(localFilters.minVolume ?? null)}
+            type="number"
+            placeholder="1000"
+            value={localFilters.minVolume ?? ''}
             onChange={e => {
               const value = e.target.value;
               if (value === '') {
                 handleFilterChange('minVolume', null);
               } else {
-                const num = parseNumber(value);
-                if (num !== null) {
+                const num = parseFloat(value);
+                if (!isNaN(num)) {
                   handleFilterChange('minVolume', num);
                 }
               }
@@ -208,16 +195,16 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
             Min Market Cap
           </label>
           <Input
-            type="text"
-            placeholder="100K, 1M"
-            value={formatNumber(localFilters.minMcap ?? null)}
+            type="number"
+            placeholder="100000"
+            value={localFilters.minMcap ?? ''}
             onChange={e => {
               const value = e.target.value;
               if (value === '') {
                 handleFilterChange('minMcap', null);
               } else {
-                const num = parseNumber(value);
-                if (num !== null) {
+                const num = parseFloat(value);
+                if (!isNaN(num)) {
                   handleFilterChange('minMcap', num);
                 }
               }
