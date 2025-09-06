@@ -349,8 +349,8 @@ All incoming WebSocket message types are defined in `test-task-types.ts`. See `I
 ### 8. Bonus Points
 
 - ✅ Unit tests (92 tests implemented)
+- ✅ Export functionality (CSV export with timestamp)
 - Chart integration (mini price charts)
-- Export functionality
 - Advanced filtering options
 
 ### API Base URL
@@ -414,14 +414,16 @@ For detailed testing information, see [TESTING.md](./TESTING.md).
 - Comprehensive unit testing (92 tests)
 - TypeScript support
 - Error handling and loading states
+- **CSV Export functionality** - Export token data to CSV files with timestamp
 
 🚧 **In Progress:**
 - Performance optimization for 1000+ rows
 - Advanced filtering options
 
 📋 **Future Enhancements:**
-- Export functionality
 - Additional UI improvements
+- Advanced chart integration
+- Enhanced filtering options
 
 ## Tech Stack
 

@@ -40,6 +40,7 @@ export const Table: FC<TableProps> = ({ title, filters: customFilters }) => {
         reconnectCountdown={reconnectCountdown}
         tokenCount={data?.allPages.length ?? 0}
         totalCount={data?.pages[data.pages.length - 1]?.data.totalRows}
+        tokens={data?.allPages}
       />
 
       <TableFilters
