@@ -13,7 +13,7 @@ import {
 } from '../ui/select';
 import { formatNumber } from '../utils/tokenUtils';
 
-interface TableFiltersProps {
+export interface TableFiltersProps {
   filters: TokenTableFilters;
   onFiltersChange: (filters: TokenTableFilters) => void;
   onClearFilters: () => void;

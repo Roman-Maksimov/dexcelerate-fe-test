@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 export const MainLayout: FC<PropsWithChildren> = ({ children }) => {
   const location = useLocation();
 
-  // Определяем активную вкладку на основе текущего пути
+  // Determine active tab based on current path
   const activeTab =
     location.pathname === '/new-tokens' ? 'new-tokens' : 'trending';
 

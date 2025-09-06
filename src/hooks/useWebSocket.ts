@@ -138,14 +138,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     // Restore pair subscriptions
-    subscriptionTicksRef.current.forEach((subscription, key) => {
+    subscriptionTicksRef.current.forEach(subscription => {
       sendMessage({
         event: 'subscribe-pair',
         data: subscription,
       });
     });
 
-    subscriptionStatsRef.current.forEach((subscription, key) => {
+    subscriptionStatsRef.current.forEach(subscription => {
       sendMessage({
         event: 'subscribe-pair-stats',
         data: subscription,

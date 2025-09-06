@@ -37,7 +37,7 @@ export const config = [
       ...pluginReactHooks.configs.recommended.rules,
       // React scope no longer necessary with new JSX transform.
       'react/react-in-jsx-scope': 'off',
-      // Автоматически исправлять окончания строк
+      // Automatically fix line endings
       'linebreak-style': ['error', 'unix'],
       'eol-last': ['error', 'always'],
     },
