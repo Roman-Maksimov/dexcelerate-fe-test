@@ -81,13 +81,20 @@ const convertFiltersToApiParams = (
   return apiParams;
 };
 
-export const useTable = (filters?: TokenTableFilters) => {
+export const useTable = () => {
   const queryClient = useQueryClient();
   const [sort, setSort] = useState<TokenTableSort>({
     column: 'volumeUsd',
     direction: 'desc',
   });
-  const [isInit, setInit] = useState(false);
+  const [filters, setFilters] = useState<TokenTableFilters>({
+    chain: null,
+    minVolume: null,
+    maxAge: null,
+    minMcap: null,
+    excludeHoneypots: false,
+  });
+  const [isInit, setIsInit] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const earlyLoadRef = useRef<HTMLDivElement>(null);
 
@@ -106,8 +113,7 @@ export const useTable = (filters?: TokenTableFilters) => {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useGetScannerInfiniteQuery(baseApiParams);
 
-  const prevIsLoading = usePrevious(isLoading);
-  const prevIsFetchingNextPage = usePrevious(isFetchingNextPage);
+  const prevBaseApiParams = usePrevious(baseApiParams);
 
   const ticksStackRef = useRef<Map<string, TickEventPayload>>(new Map());
   const statsStackRef = useRef<Map<string, PairStatsMsgData>>(new Map());
@@ -117,7 +123,8 @@ export const useTable = (filters?: TokenTableFilters) => {
     isConnected,
     isConnecting,
     reconnectCountdown,
-    subscriptionsRef,
+    subscriptionTicksRef,
+    subscriptionStatsRef,
     subscribeToScanner,
     unsubscribeFromScanner,
     subscribeToPair,
@@ -185,25 +192,30 @@ export const useTable = (filters?: TokenTableFilters) => {
 
   const subscribe = useCallback(() => {
     // Clean up obsolete pairs
-    Array.from(subscriptionsRef.current.keys())
+    Array.from(subscriptionTicksRef.current.keys())
       .filter(pairAddress => !data?.pairs[pairAddress])
-      .forEach(pairAddress => {
-        unsubscribeFromPair(pairAddress);
-        unsubscribeFromPairStats(pairAddress);
-      });
+      .forEach(unsubscribeFromPair);
 
-    data?.allPages
-      .filter(token => !subscriptionsRef.current.has(token.pairAddress))
-      .forEach(token => {
+    Array.from(subscriptionStatsRef.current.keys())
+      .filter(pairAddress => !data?.pairs[pairAddress])
+      .forEach(unsubscribeFromPairStats);
+
+    data?.allPages.forEach(token => {
+      if (!subscriptionTicksRef.current.has(token.pairAddress)) {
         subscribeToPair(token);
+      }
+
+      if (!subscriptionStatsRef.current.has(token.pairAddress)) {
         subscribeToPairStats(token);
-      });
+      }
+    });
   }, [
     data?.allPages,
     data?.pairs,
     subscribeToPair,
     subscribeToPairStats,
-    subscriptionsRef,
+    subscriptionStatsRef,
+    subscriptionTicksRef,
     unsubscribeFromPair,
     unsubscribeFromPairStats,
   ]);
@@ -333,37 +345,25 @@ export const useTable = (filters?: TokenTableFilters) => {
     };
   }, [processUpdates]);
 
-  // Subscribe to WebSocket updates with current sort parameters
-  useEffect(() => {
-    if (isConnected) {
-      subscribeToScanner(baseApiParams);
-      return () => {
-        unsubscribeFromScanner(baseApiParams);
-      };
-    }
-  }, [isConnected, subscribeToScanner, unsubscribeFromScanner, baseApiParams]);
-
+  // Subscribes to data updates
   useEffect(() => {
     if (isConnected && !isInit && !!data?.allPages.length) {
       subscribe();
-      setInit(true);
+      setIsInit(true);
     }
   }, [data?.allPages, isConnected, isInit, subscribe]);
 
+  // Drops the init flag to initiate a re-subscription to data updates
   useEffect(() => {
-    if (
-      (prevIsLoading && !isLoading) ||
-      (prevIsFetchingNextPage && !isFetchingNextPage)
-    ) {
-      subscribe();
+    if (baseApiParams) {
+      setIsInit(false);
+      subscribeToScanner(baseApiParams);
     }
-  }, [
-    isFetchingNextPage,
-    isLoading,
-    prevIsFetchingNextPage,
-    prevIsLoading,
-    subscribe,
-  ]);
+
+    return () => {
+      unsubscribeFromScanner(baseApiParams);
+    };
+  }, [baseApiParams, subscribeToScanner, unsubscribeFromScanner]);
 
   // Load next page using infinite query
   const loadNextPage = useCallback(() => {
@@ -433,9 +433,26 @@ export const useTable = (filters?: TokenTableFilters) => {
     // Data will be refetched automatically due to apiParams dependency
   };
 
+  const handleFiltersChange = useCallback((newFilters: TokenTableFilters) => {
+    setFilters(newFilters);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({
+      chain: null,
+      minVolume: null,
+      maxAge: null,
+      minMcap: null,
+      excludeHoneypots: false,
+    });
+  }, []);
+
   return {
     sort,
     handleSort,
+    filters,
+    handleFiltersChange,
+    handleClearFilters,
     loadMoreRef,
     earlyLoadRef,
     data,

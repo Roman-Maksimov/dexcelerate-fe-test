@@ -32,7 +32,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const subscriptionsRef = useRef<
+  const subscriptionTicksRef = useRef<
     Map<
       string,
       {
@@ -42,6 +42,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
     >
   >(new Map());
+  const subscriptionStatsRef = useRef<
+    Map<
+      string,
+      {
+        pair: string;
+        token: string;
+        chain: SupportedChainName;
+      }
+    >
+  >(new Map());
+
   const lastScannerParamsRef = useRef<GetScannerResultParams | null>(null);
 
   const { onScanner, onTick, onStats, onError, onReconnected } = options;
@@ -127,27 +138,33 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     // Restore pair subscriptions
-    subscriptionsRef.current.forEach((subscription, key) => {
-      if (key.startsWith('pair-')) {
-        sendMessage({
-          event: 'subscribe-pair',
-          data: subscription,
-        });
-      } else if (key.startsWith('pair-stats-')) {
-        sendMessage({
-          event: 'subscribe-pair-stats',
-          data: subscription,
-        });
-      }
+    subscriptionTicksRef.current.forEach((subscription, key) => {
+      sendMessage({
+        event: 'subscribe-pair',
+        data: subscription,
+      });
     });
 
-    console.log('Restored subscriptions:', subscriptionsRef.current.size);
+    subscriptionStatsRef.current.forEach((subscription, key) => {
+      sendMessage({
+        event: 'subscribe-pair-stats',
+        data: subscription,
+      });
+    });
+
+    console.log(
+      'Restored ticks subscriptions:',
+      subscriptionTicksRef.current.size
+    );
+    console.log(
+      'Restored stats subscriptions:',
+      subscriptionStatsRef.current.size
+    );
   }, [sendMessage]);
 
   const subscribeToPair = useCallback(
     (token: TokenData) => {
-      const subscriptionKey = `pair-${token.pairAddress}`;
-      if (subscriptionsRef.current.has(subscriptionKey)) {
+      if (subscriptionTicksRef.current.has(token.pairAddress)) {
         return;
       }
 
@@ -162,15 +179,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         data,
       });
 
-      subscriptionsRef.current.set(subscriptionKey, data);
+      subscriptionTicksRef.current.set(token.pairAddress, data);
     },
     [sendMessage]
   );
 
   const subscribeToPairStats = useCallback(
     (token: TokenData) => {
-      const subscriptionKey = `pair-stats-${token.pairAddress}`;
-      if (subscriptionsRef.current.has(subscriptionKey)) {
+      if (subscriptionStatsRef.current.has(token.pairAddress)) {
         return;
       }
 
@@ -185,41 +201,39 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         data,
       });
 
-      subscriptionsRef.current.set(subscriptionKey, data);
+      subscriptionStatsRef.current.set(token.pairAddress, data);
     },
     [sendMessage]
   );
 
   const unsubscribeFromPair = useCallback(
     (pairAddress: string) => {
-      const subscriptionKey = `pair-${pairAddress}`;
-      if (!subscriptionsRef.current.has(subscriptionKey)) {
+      if (!subscriptionTicksRef.current.has(pairAddress)) {
         return;
       }
 
       sendMessage({
         event: 'unsubscribe-pair',
-        data: subscriptionsRef.current.get(subscriptionKey)!,
+        data: subscriptionTicksRef.current.get(pairAddress)!,
       });
 
-      subscriptionsRef.current.delete(subscriptionKey);
+      subscriptionTicksRef.current.delete(pairAddress);
     },
     [sendMessage]
   );
 
   const unsubscribeFromPairStats = useCallback(
     (pairAddress: string) => {
-      const subscriptionKey = `pair-stats-${pairAddress}`;
-      if (!subscriptionsRef.current.has(subscriptionKey)) {
+      if (!subscriptionStatsRef.current.has(pairAddress)) {
         return;
       }
 
       sendMessage({
         event: 'unsubscribe-pair-stats',
-        data: subscriptionsRef.current.get(subscriptionKey)!,
+        data: subscriptionStatsRef.current.get(pairAddress)!,
       });
 
-      subscriptionsRef.current.delete(subscriptionKey);
+      subscriptionStatsRef.current.delete(pairAddress);
     },
     [sendMessage]
   );
@@ -385,7 +399,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     isConnecting,
     error,
     reconnectCountdown,
-    subscriptionsRef,
+    subscriptionTicksRef,
+    subscriptionStatsRef,
     subscribeToScanner,
     unsubscribeFromScanner,
     subscribeToPair,

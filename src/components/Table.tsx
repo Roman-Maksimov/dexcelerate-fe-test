@@ -1,7 +1,6 @@
-import React, { FC, Suspense, useCallback, useState } from 'react';
+import React, { FC, Suspense } from 'react';
 
 import { useTable } from '../hooks/useTable';
-import { TokenTableFilters } from '../scheme/type';
 import { COLUMNS } from './columns';
 import { Header } from './Header';
 import { TableFilters } from './TableFilters';
@@ -13,18 +12,13 @@ export interface TableProps {
 }
 
 export const Table: FC<TableProps> = ({ title }) => {
-  const [filters, setFilters] = useState<TokenTableFilters>({
-    chain: null,
-    minVolume: null,
-    maxAge: null,
-    minMcap: null,
-    excludeHoneypots: false,
-  });
-
   const {
     data,
     sort,
     handleSort,
+    filters,
+    handleFiltersChange,
+    handleClearFilters,
     hasNextPage,
     isConnected,
     isConnecting,
@@ -33,21 +27,7 @@ export const Table: FC<TableProps> = ({ title }) => {
     isFetchingNextPage,
     loadMoreRef,
     earlyLoadRef,
-  } = useTable(filters);
-
-  const handleFiltersChange = useCallback((newFilters: TokenTableFilters) => {
-    setFilters(newFilters);
-  }, []);
-
-  const handleClearFilters = useCallback(() => {
-    setFilters({
-      chain: null,
-      minVolume: null,
-      maxAge: null,
-      minMcap: null,
-      excludeHoneypots: false,
-    });
-  }, []);
+  } = useTable();
 
   return (
     <div>
