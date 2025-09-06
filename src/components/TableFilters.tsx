@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { formatNumber } from '../utils/tokenUtils';
 
 interface TableFiltersProps {
   filters: TokenTableFilters;
@@ -144,7 +145,10 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
         {/* Minimum Volume Filter */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-            Min Volume
+            Min Volume{' '}
+            {localFilters.minVolume
+              ? `(${formatNumber(localFilters.minVolume)})`
+              : '(1K = 1,000)'}
           </label>
           <Input
             type="number"
@@ -168,7 +172,10 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
         {/* Maximum Age Filter */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-            Max Age (h)
+            Max Age{' '}
+            {localFilters.maxAge
+              ? `(${Math.round(localFilters.maxAge / 3600)}h)`
+              : '(hours)'}
           </label>
           <Input
             type="number"
@@ -192,7 +199,10 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
         {/* Minimum Market Cap Filter */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-            Min Market Cap
+            Min Market Cap{' '}
+            {localFilters.minMcap
+              ? `(${formatNumber(localFilters.minMcap)})`
+              : '(1K = 1,000)'}
           </label>
           <Input
             type="number"
