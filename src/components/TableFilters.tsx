@@ -174,21 +174,30 @@ export const TableFilters: React.FC<TableFiltersProps> = ({
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">
             Max Age{' '}
             {localFilters.maxAge
-              ? `(${Math.round(localFilters.maxAge / 3600)}h)`
-              : '(hours)'}
+              ? (() => {
+                  const seconds = localFilters.maxAge;
+                  if (seconds < 60) {
+                    return `(${seconds}s)`;
+                  } else if (seconds < 3600) {
+                    return `(${Math.round(seconds / 60)}m)`;
+                  } else {
+                    return `(${Math.round(seconds / 3600)}h)`;
+                  }
+                })()
+              : '(seconds)'}
           </label>
           <Input
             type="number"
-            placeholder="24, 168"
-            value={localFilters.maxAge ? localFilters.maxAge / 3600 : ''}
+            placeholder="3600, 86400"
+            value={localFilters.maxAge ?? ''}
             onChange={e => {
               const value = e.target.value;
               if (value === '') {
                 handleFilterChange('maxAge', null);
               } else {
-                const hours = parseFloat(value);
-                if (!isNaN(hours)) {
-                  handleFilterChange('maxAge', hours * 3600);
+                const seconds = parseFloat(value);
+                if (!isNaN(seconds)) {
+                  handleFilterChange('maxAge', seconds);
                 }
               }
             }}
