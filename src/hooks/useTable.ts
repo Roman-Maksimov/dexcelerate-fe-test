@@ -169,6 +169,9 @@ export const useTable = (filters?: TokenTableFilters) => {
           };
         }
       );
+
+      ticksStackRef.current.clear();
+      statsStackRef.current.clear();
     },
 
     onTick: updateData => {
@@ -176,52 +179,7 @@ export const useTable = (filters?: TokenTableFilters) => {
     },
 
     onStats: updateData => {
-      // Update specific token in infinite query cache
-      const queryKey = [API_KEY_GET_SCANNER, baseApiParams];
-
-      queryClient.setQueryData(
-        queryKey,
-        (oldData: InfiniteData<AxiosResponse<ScannerApiResponse>>) => {
-          if (!oldData?.pages) return oldData;
-
-          return {
-            ...oldData,
-            pages: oldData.pages.map(page => {
-              return {
-                ...page,
-                data: {
-                  ...page.data,
-                  pairs: page.data.pairs.map(item => {
-                    const { pair, pairStats, migrationProgress } = updateData;
-
-                    if (item.pairAddress !== pair.pairAddress) {
-                      return item;
-                    }
-
-                    return {
-                      ...item,
-                      diff5M: pairStats.fiveMin.diff,
-                      diff1H: pairStats.oneHour.diff,
-                      diff6H: pairStats.sixHour.diff,
-                      diff24H: pairStats.twentyFourHour.diff,
-                      migrationProgress: Number(migrationProgress),
-                      isMintAuthDisabled: pair.mintAuthorityRenounced,
-                      isFreezeAuthDisabled: pair.freezeAuthorityRenounced,
-                      honeyPot: !pair.token1IsHoneypot,
-                      contractVerified: item.contractVerified, // preserve existing
-                      dexPaid: pair.dexPaid,
-                      discordLink: pair.linkDiscord,
-                      telegramLink: pair.linkTelegram,
-                      twitterLink: pair.linkTwitter,
-                      webLink: pair.linkWebsite,
-                    };
-                  }),
-                },
-              };
-            }),
-          };
-        }
-      );
+      statsStackRef.current.set(updateData.pair.pairAddress, updateData);
     },
     onReconnected: () => {
       // Re-subscribe to all data when WebSocket reconnects
@@ -258,8 +216,10 @@ export const useTable = (filters?: TokenTableFilters) => {
 
   const processUpdates = useCallback(() => {
     const ticks = new Map(ticksStackRef.current);
+    const stats = new Map(statsStackRef.current);
 
     ticksStackRef.current.clear();
+    statsStackRef.current.clear();
 
     // Update specific token in infinite query cache
     const queryKey = [API_KEY_GET_SCANNER, baseApiParams];
@@ -277,54 +237,85 @@ export const useTable = (filters?: TokenTableFilters) => {
               data: {
                 ...page.data,
                 pairs: page.data.pairs.map(item => {
-                  if (!ticks.has(item.pairAddress)) {
+                  if (
+                    !ticks.has(item.pairAddress) &&
+                    !stats.has(item.pairAddress)
+                  ) {
                     return item;
                   }
 
-                  const { pair, swaps } = ticks.get(item.pairAddress)!;
-                  const tokenId = pair.pair;
-
-                  // Get the latest non-outlier swap
-                  const latestSwap = swaps
-                    .filter((swap: WsTokenSwap) => !swap.isOutlier)
-                    .pop();
-
-                  if (item.pairAddress !== tokenId || !latestSwap) {
-                    return item;
-                  }
-
-                  // Update price from the latest swap
-                  const newPrice = new Decimal(latestSwap.priceToken1Usd);
-
-                  // Recalculate market cap using total supply from token data
-                  const newMarketCap = newPrice.mul(
-                    item.token1TotalSupplyFormatted
-                  );
-
-                  // Calculate volume from this swap
-                  const newVolume = newPrice
-                    .mul(latestSwap.amountToken1)
-                    .add(item.volume);
-
-                  const [buys, sells] = swaps.reduce(
-                    (prev, swap) => {
-                      const isBuy = swap.tokenInAddress === item.token1Address;
-
-                      return isBuy
-                        ? [prev[0] + 1, prev[1]]
-                        : [prev[0], prev[1] + 1];
-                    },
-                    [0, 0]
-                  );
-
-                  return {
+                  const newData = {
                     ...item,
-                    price: latestSwap.priceToken1Usd,
-                    currentMcap: newMarketCap.toString(),
-                    volume: newVolume.toString(),
-                    buys: (item.buys ?? 0) + buys,
-                    sells: (item.sells ?? 0) + sells,
                   };
+
+                  if (ticks.has(item.pairAddress)) {
+                    const { pair, swaps } = ticks.get(item.pairAddress)!;
+                    const tokenId = pair.pair;
+
+                    // Get the latest non-outlier swap
+                    const latestSwap = swaps
+                      .filter((swap: WsTokenSwap) => !swap.isOutlier)
+                      .pop();
+
+                    if (item.pairAddress !== tokenId || !latestSwap) {
+                      return item;
+                    }
+
+                    // Update price from the latest swap
+                    const newPrice = new Decimal(latestSwap.priceToken1Usd);
+
+                    // Recalculate market cap using total supply from token data
+                    const newMarketCap = newPrice.mul(
+                      item.token1TotalSupplyFormatted
+                    );
+
+                    // Calculate volume from this swap
+                    const newVolume = newPrice
+                      .mul(latestSwap.amountToken1)
+                      .add(item.volume);
+
+                    const [buys, sells] = swaps.reduce(
+                      (prev, swap) => {
+                        const isBuy =
+                          swap.tokenInAddress === item.token1Address;
+
+                        return isBuy
+                          ? [prev[0] + 1, prev[1]]
+                          : [prev[0], prev[1] + 1];
+                      },
+                      [0, 0]
+                    );
+
+                    newData.price = latestSwap.priceToken1Usd;
+                    newData.currentMcap = newMarketCap.toString();
+                    newData.volume = newVolume.toString();
+                    newData.buys = (item.buys ?? 0) + buys;
+                    newData.sells = (item.sells ?? 0) + sells;
+                  }
+
+                  if (stats.has(item.pairAddress)) {
+                    const { pair, pairStats, migrationProgress } = stats.get(
+                      item.pairAddress
+                    )!;
+
+                    newData.diff5M = pairStats.fiveMin.diff;
+                    newData.diff1H = pairStats.oneHour.diff;
+                    newData.diff6H = pairStats.sixHour.diff;
+                    newData.diff24H = pairStats.twentyFourHour.diff;
+                    newData.migrationProgress = migrationProgress;
+                    newData.isMintAuthDisabled = pair.mintAuthorityRenounced;
+                    newData.isFreezeAuthDisabled =
+                      pair.freezeAuthorityRenounced;
+                    newData.honeyPot = !pair.token1IsHoneypot;
+                    newData.contractVerified = item.contractVerified; // preserve existing
+                    newData.dexPaid = pair.dexPaid;
+                    newData.discordLink = pair.linkDiscord;
+                    newData.telegramLink = pair.linkTelegram;
+                    newData.twitterLink = pair.linkTwitter;
+                    newData.webLink = pair.linkWebsite;
+                  }
+
+                  return newData;
                 }),
               },
             };
