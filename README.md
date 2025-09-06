@@ -7,6 +7,42 @@ Build a React component that displays two tables side-by-side, infinitely pagina
 this is how it should look:
 <img width="2056" height="993" alt="Screenshot 2025-08-20 at 22 57 37" src="https://github.com/user-attachments/assets/2f94a923-e30b-4198-8934-fd289ef02d95" />
 
+## Quick Start
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run tests
+npm run test:run
+```
+
+### Development Setup
+
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+2. Open your browser and navigate to the local development URL (usually `http://localhost:5173`)
+
+**Note:** CORS extension is not required as a local proxy is configured at the Vite level to handle API requests.
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run test` - Run tests in watch mode
+- `npm run test:run` - Run tests once
+- `npm run test:ui` - Run tests with UI interface
+- `npm run lint` - Run ESLint
+
 ## Requirements
 
 ### 1. Component Structure
@@ -312,7 +348,7 @@ All incoming WebSocket message types are defined in `test-task-types.ts`. See `I
 
 ### 8. Bonus Points
 
-- Unit tests
+- ✅ Unit tests (92 tests implemented)
 - Chart integration (mini price charts)
 - Export functionality
 - Advanced filtering options
@@ -325,5 +361,89 @@ For ws connection use:
 
 ### API notes:
 
-You will have to use a no-cors extension from the chrome web store during development
-`https://chromewebstore.google.com/detail/allow-cors-access-control/` - or any other extension with similar functionality.
+The project is configured with a Vite proxy to handle CORS issues during development. No browser extensions are required for API requests.
+
+## Testing
+
+This project includes comprehensive unit tests using Vitest and React Testing Library.
+
+### Test Coverage
+
+- **92 tests** across 8 test files
+- **Utility functions** - Number formatting, price calculations, data conversion
+- **Custom hooks** - usePrevious, useTable, useWebSocket
+- **React components** - Table, TableFilters, App
+- **Type schemas** - Utility functions and type conversions
+
+### Running Tests
+
+```bash
+# Run all tests
+npm run test:run
+
+# Run tests in watch mode
+npm run test
+
+# Run tests with UI
+npm run test:ui
+```
+
+### Test Structure
+
+```
+src/
+├── __tests__/           # App-level tests
+├── components/__tests__/ # Component tests
+├── hooks/__tests__/     # Custom hook tests
+├── utils/__tests__/     # Utility function tests
+├── scheme/__tests__/    # Type schema tests
+└── test/               # Test setup and configuration
+```
+
+For detailed testing information, see [TESTING.md](./TESTING.md).
+
+## Project Status
+
+✅ **Completed Features:**
+- React application with Vite
+- Two side-by-side tables (Trending/New Tokens)
+- Real-time WebSocket integration
+- REST API integration
+- Filtering capabilities
+- Responsive UI with Tailwind CSS
+- Comprehensive unit testing (92 tests)
+- TypeScript support
+- Error handling and loading states
+
+🚧 **In Progress:**
+- Performance optimization for 1000+ rows
+- Advanced filtering options
+
+📋 **Future Enhancements:**
+- Export functionality
+- Additional UI improvements
+
+## Tech Stack
+
+### Frontend
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Styling
+- **React Router** - Client-side routing
+
+### Testing
+- **Vitest** - Test runner
+- **React Testing Library** - Component testing
+- **@testing-library/jest-dom** - DOM matchers
+- **jsdom** - DOM environment for tests
+
+### Data & API
+- **TanStack Query** - Data fetching and caching
+- **WebSocket** - Real-time data updates
+- **Decimal.js** - Precise number calculations
+
+### Development Tools
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **TypeScript** - Static type checking
